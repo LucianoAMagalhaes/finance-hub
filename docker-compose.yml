@@ -1,0 +1,25 @@
+# Docker Compose for the local PostgreSQL database.
+#
+# The Next.js app runs directly on the host machine (npm run dev), but the
+# database is isolated inside a container. This keeps Postgres reproducible and
+# avoids installing/configuring a database server on the host (see ADR-002).
+#
+# Usage:
+#   docker compose up -d     # start the database in the background
+#   docker compose down      # stop it
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: finra
+      POSTGRES_PASSWORD: finra
+      POSTGRES_DB: finra
+    ports:
+      # Expose Postgres on localhost:5432 so the app (running on the host)
+      # can connect via the DATABASE_URL in .env.
+      - "5432:5432"
+    volumes:
+      # Persist data on the host so it survives container restarts.
+      # This folder is git-ignored.
+      - ./data/postgres:/var/lib/postgresql/data
