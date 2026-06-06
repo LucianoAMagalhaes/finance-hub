@@ -1,0 +1,130 @@
+// Prisma schema — the single source of truth for the database structure.
+//
+// From this file Prisma generates two things:
+//   1. SQL migrations (the actual CREATE TABLE statements), via `prisma migrate`
+//   2. A fully typed TypeScript client (`@prisma/client`) used to query the DB
+//
+// Conventions followed here (see CLAUDE.md):
+//   - Model fields are English camelCase; @map / @@map point them at the
+//     snake_case column/table names from the documented data model.
+//   - Money is stored as integer CENTS (e.g. 150000 = R$ 1.500,00) — never floats.
+//   - Dates are stored as timestamps (ISO 8601) and formatted on the frontend.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Read from .env — points at the docker-compose Postgres container.
+  url      = env("DATABASE_URL")
+}
+
+// ----- Enums -------------------------------------------------------------
+// Enums become real PostgreSQL types, so the DB itself rejects invalid values.
+
+// A transaction (and a category) is either income or expense.
+enum TransactionType {
+  income
+  expense
+}
+
+// The allowed payment methods from the Phase 1 spec.
+enum PaymentMethod {
+  cash
+  debit
+  credit
+  pix
+  transfer
+  boleto
+}
+
+// ----- Models ------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations: one user owns many categories, transactions, budgets and goals.
+  categories   Category[]
+  transactions Transaction[]
+  budgets      Budget[]
+  goals        Goal[]
+
+  @@map("users")
+}
+
+model Category {
+  id    String          @id @default(cuid())
+  name  String
+  icon  String
+  color String
+  type  TransactionType
+
+  // Owner of this category.
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A category groups many transactions and can have budgets.
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  description   String
+  // Amount in integer cents. Always positive; the `type` tells income vs expense.
+  amount        Int
+  date          DateTime
+  type          TransactionType
+  paymentMethod PaymentMethod   @map("payment_method")
+  notes         String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@map("transactions")
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  // Spending limit for the category in this period, in integer cents.
+  amountLimit Int      @map("amount_limit")
+  // Period the budget applies to (month is 1-12).
+  month       Int
+  year        Int
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  // One budget per category per month/year.
+  @@unique([userId, categoryId, month, year])
+  @@map("budgets")
+}
+
+model Goal {
+  id                  String   @id @default(cuid())
+  name                String
+  // Target and current saved amount, in integer cents.
+  targetAmount        Int      @map("target_amount")
+  currentAmount       Int      @default(0) @map("current_amount")
+  deadline            DateTime
+  // Suggested monthly contribution, in integer cents.
+  monthlyContribution Int      @map("monthly_contribution")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}

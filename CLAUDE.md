@@ -4,6 +4,37 @@
 
 Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é orçamento doméstico completo. Investimentos e calculadoras entram nas fases seguintes.
 
+---
+
+## Estado atual e próximos passos
+
+**Atualizado em:** 2026-06-06
+
+### Concluído
+- [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
+- [x] **Setup do banco** — branch `chore/database-setup`
+  - `docker-compose.yml`, `.env` / `.env.example`, `.gitignore` ajustados
+  - `prisma/schema.prisma` com modelos da Fase 1 (User, Category, Transaction, Budget, Goal) — validado
+  - Banco no ar (`docker compose up -d`) e migration inicial aplicada (`prisma/migrations/.../init`) — 5 tabelas criadas
+  - Prisma Client singleton em `lib/prisma.ts`
+
+### Em andamento
+- [ ] Nada em andamento — pronto para iniciar `feat/seed-default-categories`
+
+### Próximos passos (Fase 1 — uma branch por funcionalidade)
+1. `feat/seed-default-categories` — usuário local + categorias padrão (seed)
+2. `feat/transactions` — CRUD de transações + filtros + busca
+3. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
+4. `feat/goals` — metas com progresso e aporte mensal sugerido
+5. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
+6. `feat/settings` — perfil e categorias personalizadas
+7. `docs/initial-adrs` — ADRs 001–005
+
+### Método de trabalho
+Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
+
+---
+
 ## Stack
 
 - **Framework:** Next.js 14 (App Router)
