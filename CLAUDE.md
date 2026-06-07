@@ -18,17 +18,22 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - Banco no ar (`docker compose up -d`) e migration inicial aplicada (`prisma/migrations/.../init`) — 5 tabelas criadas
   - Prisma Client singleton em `lib/prisma.ts`
 
+- [x] **Modelo de categorias + seed** — branch `feat/category-model-and-seed`
+  - Adotado o método dos **6 potes** (Custos Fixos, Conforto, Prazeres, Metas, Liberdade Financeira, Conhecimento) — ver "Modelo de dados (Fase 1)" abaixo
+  - Novos modelos `Subcategory` (livre, sem pai fixo) e `Tag` (marcador reutilizável, 1 por transação); `Transaction` ganhou `subcategoryId?` e `tagId?`
+  - Migration `add_subcategories_and_tags` aplicada (7 tabelas)
+  - `prisma/seed.ts` idempotente (`tsx`) registrado em `package.json` (`npm run db:seed`): usuário local + 10 categorias + 8 subcategorias + 4 marcadores
+
 ### Em andamento
-- [ ] Nada em andamento — pronto para iniciar `feat/seed-default-categories`
+- [ ] Nada em andamento — pronto para iniciar `feat/transactions`
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/seed-default-categories` — usuário local + categorias padrão (seed)
-2. `feat/transactions` — CRUD de transações + filtros + busca
-3. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
-4. `feat/goals` — metas com progresso e aporte mensal sugerido
-5. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
-6. `feat/settings` — perfil e categorias personalizadas
-7. `docs/initial-adrs` — ADRs 001–005
+1. `feat/transactions` — CRUD de transações + filtros + busca
+2. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
+3. `feat/goals` — metas com progresso e aporte mensal sugerido
+4. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
+5. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
+6. `docs/initial-adrs` — ADRs 001–005
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
@@ -94,16 +99,18 @@ services:
 - Busca por descrição
 
 **Orçamentos**
-- Criar orçamento por categoria e período (mensal por padrão)
-- Definir limite de gasto por categoria (ex: Alimentação R$ 800/mês)
+- Criar orçamento por categoria (pote) e período (mensal por padrão)
+- Definir limite de gasto por categoria (ex: Conforto R$ 800/mês)
 - Acompanhar quanto já foi gasto vs o limite definido
 - Alertas visuais ao atingir 80% e 100% do limite
 - Visão geral de todos os orçamentos do mês
 
-**Categorias**
-- Categorias padrão: Alimentação, Moradia, Transporte, Saúde, Lazer, Educação, Utilidades, Outros
-- Possibilidade de criar categorias personalizadas
-- Cada categoria tem ícone e cor
+**Categorias, subcategorias e marcadores** (método dos 6 potes)
+- **Categoria** (obrigatória): o "pote". Despesa usa os 6 potes — Custos Fixos, Conforto, Prazeres, Metas, Liberdade Financeira, Conhecimento. Receita usa fontes — Salário, Freela, Rendimentos, Outras Receitas. Tem ícone e cor.
+- **Subcategoria** (opcional): área de gasto/receita escolhida **livremente**, sem pai fixo — Alimentação, Moradia, Transporte, Saúde, Lazer, Educação, Utilidades, Outros. A mesma subcategoria pode aparecer em potes diferentes.
+- **Marcador / Tag** (opcional, **1 por transação**): etiqueta reutilizável criada uma vez e reaproveitada em receitas e despesas — ex: combustível, assinatura, viagem, presente.
+- Exemplo: gasolina → Categoria **Conforto** + Subcategoria **Transporte** + Marcador **combustível**.
+- Tudo personalizável em Configurações.
 
 **Dashboard (Fase 1)**
 - Saldo do mês (receitas − despesas)
@@ -126,8 +133,15 @@ users
 categories
   id, user_id, name, icon, color, type (income|expense)
 
+subcategories
+  id, user_id, name, icon, color, type (income|expense)
+
+tags
+  id, user_id, name, color?   -- unique (user_id, name)
+
 transactions
-  id, user_id, category_id, description, amount, date,
+  id, user_id, category_id, subcategory_id?, tag_id?,
+  description, amount, date,
   type (income|expense), payment_method
   (cash|debit|credit|pix|transfer|boleto), notes, created_at
 
