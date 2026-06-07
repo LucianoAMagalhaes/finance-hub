@@ -47,7 +47,10 @@ Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **po
 - **ORM:** Prisma
 - **Estilo:** Tailwind CSS
 - **Gráficos:** Recharts
+- **Testes:** Vitest + Testing Library (unit e componente) — `npm test` / `npm run test:watch`
 - **Ambiente:** app roda local (`npm run dev`), banco isolado via Docker Compose
+
+> E2E (Playwright) ficou adiado: no WSL só há o Chrome do Windows, que o Playwright Linux não consegue dirigir, e optamos por não baixar o Chromium do Playwright. Reavaliar quando houver um Chrome nativo Linux ou CI.
 
 ## Ambiente de desenvolvimento
 
