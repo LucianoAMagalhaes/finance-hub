@@ -40,3 +40,18 @@ export function parseBRLToCents(input: string): number | null {
   // Round to avoid floating-point drift (e.g. 19.99 * 100 = 1998.9999...).
   return Math.round(value * 100)
 }
+
+/**
+ * Formats a date as the Brazilian dd/mm/aaaa.
+ *
+ * We force the UTC time zone because transaction dates are stored as a date at
+ * UTC midnight (see the transactions Server Action). Formatting in UTC ensures
+ * the displayed day always equals the day the user picked, regardless of the
+ * server's local time zone.
+ *
+ * @param date - A Date object or an ISO string.
+ */
+export function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}

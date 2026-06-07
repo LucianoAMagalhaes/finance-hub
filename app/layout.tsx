@@ -4,6 +4,7 @@
 // Component by default, so it renders on the server before reaching the browser.
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import Link from "next/link";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -33,6 +34,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Shared top navigation. `next/link` does client-side navigation
+            between routes without a full page reload. */}
+        <nav className="border-b border-gray-200 bg-white">
+          <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-3">
+            <Link href="/" className="font-bold tracking-tight">
+              Finra
+            </Link>
+            <Link
+              href="/transactions"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Transações
+            </Link>
+          </div>
+        </nav>
         {children}
       </body>
     </html>

@@ -25,10 +25,13 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - `prisma/seed.ts` idempotente (`tsx`) registrado em `package.json` (`npm run db:seed`): usuário local + 10 categorias + 8 subcategorias + 4 marcadores
 
 ### Em andamento
-- [ ] Nada em andamento — pronto para iniciar `feat/transactions`
+- [ ] **`feat/transactions`** — CRUD de transações + filtros + busca
+  - [x] Slice 1: **listar + criar** — página `/transactions` (Server Component), `TransactionForm` (Client) com validação Zod client+server, `createTransaction` (Server Action), `TransactionList`, nav no layout. Stack de apoio: `lib/user.ts`, `lib/constants.ts`, `lib/transaction-schema.ts` (+ testes), `formatDate`. Verificado no app.
+  - [ ] Slice 2: filtros (tipo, categoria, pagamento, período) + busca por descrição
+  - [ ] Slice 3: editar e excluir
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/transactions` — CRUD de transações + filtros + busca
+1. `feat/transactions` — CRUD de transações + filtros + busca *(em andamento)*
 2. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
 3. `feat/goals` — metas com progresso e aporte mensal sugerido
 4. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos

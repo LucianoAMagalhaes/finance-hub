@@ -1,0 +1,69 @@
+// Server Actions for transactions.
+//
+// What is a Server Action? The "use server" directive below marks every export
+// in this file as a function that ALWAYS runs on the server, even when called
+// from a Client Component in the browser. Next.js handles the network round-trip
+// for us: the browser calls `createTransaction(data)` like a normal function,
+// but the body executes on the server (where it can safely use Prisma).
+//
+// This replaces hand-writing a REST API route for simple form submissions.
+
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { getLocalUser } from '@/lib/user'
+import { transactionInputSchema } from '@/lib/transaction-schema'
+
+// The shape returned to the client so the form can show success or errors.
+export type ActionResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+/**
+ * Creates a transaction for the local user.
+ *
+ * @param input - Raw object from the form. We re-validate it here with the
+ *   shared Zod schema: never trust data coming from the browser.
+ */
+export async function createTransaction(input: unknown): Promise<ActionResult> {
+  // 1) Validate. safeParse never throws — it returns success/error so we can
+  //    turn a bad payload into a friendly message instead of a crash.
+  const parsed = transactionInputSchema.safeParse(input)
+  if (!parsed.success) {
+    // Surface the first validation message.
+    const first = parsed.error.issues[0]
+    return { ok: false, error: first?.message ?? 'Dados inválidos' }
+  }
+
+  const data = parsed.data
+
+  try {
+    const user = await getLocalUser()
+
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        description: data.description,
+        amount: data.amount, // already integer cents
+        // Store the picked day as UTC midnight so it never shifts time zone.
+        date: new Date(`${data.date}T00:00:00.000Z`),
+        type: data.type,
+        paymentMethod: data.paymentMethod,
+        categoryId: data.categoryId,
+        subcategoryId: data.subcategoryId,
+        tagId: data.tagId,
+        notes: data.notes,
+      },
+    })
+
+    // Tell Next.js the data behind /transactions changed, so the Server
+    // Component list re-renders with the new row on the next paint.
+    revalidatePath('/transactions')
+    return { ok: true }
+  } catch (error) {
+    // Explicit error handling is required by our conventions (CLAUDE.md).
+    console.error('createTransaction failed:', error)
+    return { ok: false, error: 'Não foi possível salvar a transação.' }
+  }
+}
