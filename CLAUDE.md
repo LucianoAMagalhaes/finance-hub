@@ -30,14 +30,16 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - [x] Slice 3: **editar e excluir** — branch `feat/transaction-edit-delete`. Server Actions `updateTransaction`/`deleteTransaction` escopadas ao dono (`updateMany`/`deleteMany` com `userId` → id de outro usuário casa 0 linhas); rota dinâmica `app/transactions/[id]/edit/page.tsx` (busca com `notFound()` se inexistente/não-dono) reusando `TransactionForm` em modo de edição (prop `editing`); `TransactionRowActions` (Client) por linha com Editar + Excluir (`confirm()`). Verificado no app (prefill 200, id inválido 404, update/delete contra o banco).
 
 ### Em andamento
-- (nenhuma)
+- [ ] **`feat/budgets`** — orçamentos com alertas visuais 80% / 100%
+  - [x] Slice 1: **criar + listar com progresso** — página `/budgets` (Server Component) do mês atual; gasto por categoria via `groupBy` (1 query), barra de progresso e alertas 80% (warning) / 100% (over); `BudgetForm` (Client) só com potes ainda sem orçamento no mês, `createBudget` (Server Action) tratando duplicado P2002 (`@@unique userId+categoryId+month+year`); `BudgetList` (Server) com resumo do mês + cartões; nav no layout. Helpers puros `lib/budget.ts` (`budgetStatus`, `monthRange`, `MONTH_LABELS`) + `lib/budget-schema.ts` (+ testes). Verificado no app (200, criação, 85%→warning, duplicado rejeitado).
+  - [ ] Slice 2: editar e excluir orçamento
+  - [ ] Slice 3: seletor de período (navegar meses) + visão geral resumida
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
-2. `feat/goals` — metas com progresso e aporte mensal sugerido
-3. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
-4. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
-5. `docs/initial-adrs` — ADRs 001–005
+1. `feat/goals` — metas com progresso e aporte mensal sugerido
+2. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
+3. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
+4. `docs/initial-adrs` — ADRs 001–005
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
