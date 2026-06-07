@@ -10,6 +10,7 @@ import {
   type PaymentMethod,
   type TransactionType,
 } from '@/lib/constants'
+import { TransactionRowActions } from './transaction-row-actions'
 
 // The exact shape the page selects for each transaction.
 export type TransactionRow = {
@@ -53,6 +54,7 @@ export function TransactionList({
             <th className="px-4 py-3">Categoria</th>
             <th className="px-4 py-3">Pagamento</th>
             <th className="px-4 py-3 text-right">Valor</th>
+            <th className="px-4 py-3 text-right">Ações</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -100,6 +102,9 @@ export function TransactionList({
                 </td>
                 <td className="px-4 py-3 text-right font-medium">
                   <Money cents={signed} colored />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <TransactionRowActions id={t.id} description={t.description} />
                 </td>
               </tr>
             )
