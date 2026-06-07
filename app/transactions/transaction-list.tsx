@@ -25,11 +25,20 @@ export type TransactionRow = {
   tag: { name: string } | null
 }
 
-export function TransactionList({ items }: { items: TransactionRow[] }) {
+export function TransactionList({
+  items,
+  filtered = false,
+}: {
+  items: TransactionRow[]
+  // When true, the empty state reflects "no match" instead of "no data yet".
+  filtered?: boolean
+}) {
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-        Nenhuma transação ainda. Crie a primeira no formulário ao lado.
+        {filtered
+          ? 'Nenhuma transação corresponde aos filtros.'
+          : 'Nenhuma transação ainda. Crie a primeira no formulário ao lado.'}
       </div>
     )
   }

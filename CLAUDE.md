@@ -27,7 +27,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 ### Em andamento
 - [ ] **`feat/transactions`** — CRUD de transações + filtros + busca
   - [x] Slice 1: **listar + criar** — página `/transactions` (Server Component), `TransactionForm` (Client) com validação Zod client+server, `createTransaction` (Server Action), `TransactionList`, nav no layout. Stack de apoio: `lib/user.ts`, `lib/constants.ts`, `lib/transaction-schema.ts` (+ testes), `formatDate`. Verificado no app.
-  - [ ] Slice 2: filtros (tipo, categoria, pagamento, período) + busca por descrição
+  - [x] Slice 2: **filtros + busca** — filtros via search params na URL (tipo, categoria, pagamento, período de/até) + busca por descrição (debounce, case-insensitive). `lib/transaction-filters.ts` (`parseTransactionFilters`/`buildTransactionWhere`, puros + testes), `TransactionFilters` (Client), resumo de receitas/despesas/saldo do conjunto filtrado. Verificado no app.
   - [ ] Slice 3: editar e excluir
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
