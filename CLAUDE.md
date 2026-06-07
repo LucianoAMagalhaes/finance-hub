@@ -8,7 +8,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-06-06
+**Atualizado em:** 2026-06-07
 
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
@@ -24,19 +24,20 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - Migration `add_subcategories_and_tags` aplicada (7 tabelas)
   - `prisma/seed.ts` idempotente (`tsx`) registrado em `package.json` (`npm run db:seed`): usuário local + 10 categorias + 8 subcategorias + 4 marcadores
 
-### Em andamento
-- [ ] **`feat/transactions`** — CRUD de transações + filtros + busca
+- [x] **`feat/transactions`** — CRUD de transações + filtros + busca
   - [x] Slice 1: **listar + criar** — página `/transactions` (Server Component), `TransactionForm` (Client) com validação Zod client+server, `createTransaction` (Server Action), `TransactionList`, nav no layout. Stack de apoio: `lib/user.ts`, `lib/constants.ts`, `lib/transaction-schema.ts` (+ testes), `formatDate`. Verificado no app.
   - [x] Slice 2: **filtros + busca** — filtros via search params na URL (tipo, categoria, pagamento, período de/até) + busca por descrição (debounce, case-insensitive). `lib/transaction-filters.ts` (`parseTransactionFilters`/`buildTransactionWhere`, puros + testes), `TransactionFilters` (Client), resumo de receitas/despesas/saldo do conjunto filtrado. Verificado no app.
-  - [ ] Slice 3: editar e excluir
+  - [x] Slice 3: **editar e excluir** — branch `feat/transaction-edit-delete`. Server Actions `updateTransaction`/`deleteTransaction` escopadas ao dono (`updateMany`/`deleteMany` com `userId` → id de outro usuário casa 0 linhas); rota dinâmica `app/transactions/[id]/edit/page.tsx` (busca com `notFound()` se inexistente/não-dono) reusando `TransactionForm` em modo de edição (prop `editing`); `TransactionRowActions` (Client) por linha com Editar + Excluir (`confirm()`). Verificado no app (prefill 200, id inválido 404, update/delete contra o banco).
+
+### Em andamento
+- (nenhuma)
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/transactions` — CRUD de transações + filtros + busca *(em andamento)*
-2. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
-3. `feat/goals` — metas com progresso e aporte mensal sugerido
-4. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
-5. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
-6. `docs/initial-adrs` — ADRs 001–005
+1. `feat/budgets` — orçamentos com alertas visuais 80% / 100%
+2. `feat/goals` — metas com progresso e aporte mensal sugerido
+3. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
+4. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
+5. `docs/initial-adrs` — ADRs 001–005
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.

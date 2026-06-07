@@ -9,26 +9,46 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { parseBRLToCents } from '@/lib/format'
+import Link from 'next/link'
+import { formatBRL, parseBRLToCents } from '@/lib/format'
 import { transactionInputSchema } from '@/lib/transaction-schema'
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   TRANSACTION_TYPES,
   TRANSACTION_TYPE_LABELS,
+  type PaymentMethod,
   type TransactionType,
 } from '@/lib/constants'
-import { createTransaction } from './actions'
+import { createTransaction, updateTransaction } from './actions'
 
 // Minimal serializable shapes passed down from the Server Component.
 type CategoryOption = { id: string; name: string; icon: string; type: TransactionType }
 type SubcategoryOption = CategoryOption
 type TagOption = { id: string; name: string }
 
+// When present, the form runs in "edit mode": prefilled and saving with
+// updateTransaction instead of createTransaction. All fields are plain
+// serializable values so they can cross the server→client boundary.
+export type EditingTransaction = {
+  id: string
+  description: string
+  amount: number // integer cents
+  date: string // YYYY-MM-DD
+  type: TransactionType
+  paymentMethod: PaymentMethod
+  categoryId: string
+  subcategoryId: string | null
+  tagId: string | null
+  notes: string | null
+}
+
 type Props = {
   categories: CategoryOption[]
   subcategories: SubcategoryOption[]
   tags: TagOption[]
+  // Omitted/undefined → create mode; provided → edit mode.
+  editing?: EditingTransaction
 }
 
 // Today as YYYY-MM-DD for the date input's default value.
@@ -36,20 +56,34 @@ function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function TransactionForm({ categories, subcategories, tags }: Props) {
+export function TransactionForm({
+  categories,
+  subcategories,
+  tags,
+  editing,
+}: Props) {
   const router = useRouter()
+  const isEditing = editing !== undefined
   // useTransition gives us a `pending` flag while the Server Action runs.
   const [isPending, startTransition] = useTransition()
 
-  const [type, setType] = useState<TransactionType>('expense')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(today())
-  const [categoryId, setCategoryId] = useState('')
-  const [subcategoryId, setSubcategoryId] = useState('')
-  const [tagId, setTagId] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<string>('pix')
-  const [notes, setNotes] = useState('')
+  // In edit mode each field starts from the existing transaction; otherwise we
+  // start blank (with sensible defaults).
+  const [type, setType] = useState<TransactionType>(editing?.type ?? 'expense')
+  const [description, setDescription] = useState(editing?.description ?? '')
+  const [amount, setAmount] = useState(
+    editing ? formatBRL(editing.amount) : '',
+  )
+  const [date, setDate] = useState(editing?.date ?? today())
+  const [categoryId, setCategoryId] = useState(editing?.categoryId ?? '')
+  const [subcategoryId, setSubcategoryId] = useState(
+    editing?.subcategoryId ?? '',
+  )
+  const [tagId, setTagId] = useState(editing?.tagId ?? '')
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    editing?.paymentMethod ?? 'pix',
+  )
+  const [notes, setNotes] = useState(editing?.notes ?? '')
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -109,14 +143,26 @@ export function TransactionForm({ categories, subcategories, tags }: Props) {
     }
 
     startTransition(async () => {
-      const result = await createTransaction(payload)
-      if (result.ok) {
+      // Edit mode updates the existing row and returns to the list; create mode
+      // saves a new row and clears the form so the next one can be typed.
+      const result = isEditing
+        ? await updateTransaction(editing.id, payload)
+        : await createTransaction(payload)
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
+      if (isEditing) {
+        // Go back to the list. router.refresh() ensures it shows fresh data.
+        router.push('/transactions')
+        router.refresh()
+      } else {
         resetForm()
         setSuccess(true)
         // Re-fetch the Server Component so the new row appears immediately.
         router.refresh()
-      } else {
-        setError(result.error)
       }
     })
   }
@@ -131,7 +177,9 @@ export function TransactionForm({ categories, subcategories, tags }: Props) {
       onSubmit={handleSubmit}
       className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
     >
-      <h2 className="text-lg font-semibold">Nova transação</h2>
+      <h2 className="text-lg font-semibold">
+        {isEditing ? 'Editar transação' : 'Nova transação'}
+      </h2>
 
       {/* Type toggle */}
       <div className="flex gap-2">
@@ -291,13 +339,28 @@ export function TransactionForm({ categories, subcategories, tags }: Props) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
-      >
-        {isPending ? 'Salvando…' : 'Salvar transação'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="flex-1 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+        >
+          {isPending
+            ? 'Salvando…'
+            : isEditing
+              ? 'Salvar alterações'
+              : 'Salvar transação'}
+        </button>
+        {isEditing && (
+          // In edit mode, give the user an explicit way out without saving.
+          <Link
+            href="/transactions"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+          >
+            Cancelar
+          </Link>
+        )}
+      </div>
     </form>
   )
 }
