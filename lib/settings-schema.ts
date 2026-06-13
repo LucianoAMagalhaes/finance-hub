@@ -2,9 +2,9 @@
 //
 // Role in the architecture: ONE Zod schema per editable entity, shared by the
 // client forms (instant feedback) and the Server Actions (never trust the
-// browser) — same pattern as transaction-schema.ts / budget-schema.ts /
-// goal-schema.ts. Settings edits the user profile plus the three customizable
-// catalogs: categories and tags.
+// browser) — same pattern as transaction-schema.ts / budget-schema.ts.
+// Settings edits the user profile plus the customizable catalogs: categories
+// and tags.
 
 import { z } from 'zod'
 import { TRANSACTION_TYPES } from '@/lib/constants'
