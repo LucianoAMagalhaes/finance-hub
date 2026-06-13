@@ -30,24 +30,27 @@ const LOCAL_USER = {
 // --- Categories ("jars"/potes) -------------------------------------------
 // Expenses follow the 6-jars budgeting method. Income uses its own sources,
 // because the jars describe HOW you spend, not HOW you earn.
+// `targetPercent` is the share of monthly income for each expense jar; the six
+// defaults sum to 100. Income categories keep 0 (the share is a spending plan).
 const CATEGORIES: Array<{
   name: string
   icon: string
   color: string
   type: TransactionType
+  targetPercent: number
 }> = [
-  // Expenses — the 6 jars
-  { name: 'Custos Fixos', icon: '🏠', color: '#ef4444', type: 'expense' },
-  { name: 'Conforto', icon: '🛋️', color: '#f97316', type: 'expense' },
-  { name: 'Prazeres', icon: '🎉', color: '#ec4899', type: 'expense' },
-  { name: 'Metas', icon: '🎯', color: '#8b5cf6', type: 'expense' },
-  { name: 'Liberdade Financeira', icon: '📈', color: '#22c55e', type: 'expense' },
-  { name: 'Conhecimento', icon: '📚', color: '#3b82f6', type: 'expense' },
-  // Income — sources
-  { name: 'Salário', icon: '💰', color: '#16a34a', type: 'income' },
-  { name: 'Freela', icon: '💼', color: '#14b8a6', type: 'income' },
-  { name: 'Rendimentos', icon: '🪙', color: '#0ea5e9', type: 'income' },
-  { name: 'Outras Receitas', icon: '➕', color: '#6b7280', type: 'income' },
+  // Expenses — the 6 jars (percentages sum to 100)
+  { name: 'Custos Fixos', icon: '🏠', color: '#ef4444', type: 'expense', targetPercent: 55 },
+  { name: 'Conforto', icon: '🛋️', color: '#f97316', type: 'expense', targetPercent: 10 },
+  { name: 'Prazeres', icon: '🎉', color: '#ec4899', type: 'expense', targetPercent: 10 },
+  { name: 'Metas', icon: '🎯', color: '#8b5cf6', type: 'expense', targetPercent: 5 },
+  { name: 'Liberdade Financeira', icon: '📈', color: '#22c55e', type: 'expense', targetPercent: 10 },
+  { name: 'Conhecimento', icon: '📚', color: '#3b82f6', type: 'expense', targetPercent: 10 },
+  // Income — sources (no target share)
+  { name: 'Salário', icon: '💰', color: '#16a34a', type: 'income', targetPercent: 0 },
+  { name: 'Freela', icon: '💼', color: '#14b8a6', type: 'income', targetPercent: 0 },
+  { name: 'Rendimentos', icon: '🪙', color: '#0ea5e9', type: 'income', targetPercent: 0 },
+  { name: 'Outras Receitas', icon: '➕', color: '#6b7280', type: 'income', targetPercent: 0 },
 ]
 
 // --- Tags (markers/marcadores) -------------------------------------------
@@ -71,19 +74,27 @@ async function main() {
   console.log(`✓ Local user ready: ${user.name} <${user.email}> (${user.id})`)
 
   // 2) Categories. There is no unique constraint on (userId, name), so we
-  //    check-then-create to stay idempotent without altering the schema.
+  //    check-then-create to stay idempotent without altering the schema. When a
+  //    category already exists we still refresh its targetPercent, so re-seeding
+  //    restores the default plan (and back-fills rows created before the column).
   let categoriesCreated = 0
   for (const category of CATEGORIES) {
     const existing = await prisma.category.findFirst({
       where: { userId: user.id, name: category.name, type: category.type },
     })
-    if (existing) continue
+    if (existing) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: { targetPercent: category.targetPercent },
+      })
+      continue
+    }
     await prisma.category.create({ data: { ...category, userId: user.id } })
     categoriesCreated++
   }
   console.log(
     `✓ Categories: ${categoriesCreated} created, ` +
-      `${CATEGORIES.length - categoriesCreated} already existed`,
+      `${CATEGORIES.length - categoriesCreated} updated`,
   )
 
   // 3) Tags. Tag has a unique (userId, name) constraint, so a real `upsert`

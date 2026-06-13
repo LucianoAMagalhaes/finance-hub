@@ -47,13 +47,11 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations: one user owns many categories, tags, transactions,
-  // budgets and goals.
+  // Relations: one user owns many categories, tags, transactions and budgets.
   categories    Category[]
   tags          Tag[]
   transactions  Transaction[]
   budgets       Budget[]
-  goals         Goal[]
 
   @@map("users")
 }
@@ -68,6 +66,10 @@ model Category {
   icon  String
   color String
   type  TransactionType
+  // Target share of monthly income allocated to this jar, as a whole-number
+  // percentage 0-100 (the "Metas" screen edits these). Only meaningful for
+  // expense categories; income categories keep the default 0.
+  targetPercent Int @default(0) @map("target_percent")
 
   // Owner of this category.
   userId String @map("user_id")
@@ -141,21 +143,4 @@ model Budget {
   // One budget per category per month/year.
   @@unique([userId, categoryId, month, year])
   @@map("budgets")
-}
-
-model Goal {
-  id                  String   @id @default(cuid())
-  name                String
-  // Target and current saved amount, in integer cents.
-  targetAmount        Int      @map("target_amount")
-  currentAmount       Int      @default(0) @map("current_amount")
-  deadline            DateTime
-  // Suggested monthly contribution, in integer cents.
-  monthlyContribution Int      @map("monthly_contribution")
-  createdAt           DateTime @default(now()) @map("created_at")
-
-  userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("goals")
 }

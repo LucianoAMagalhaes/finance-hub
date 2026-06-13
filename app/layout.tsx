@@ -54,7 +54,7 @@ export default function RootLayout({
               Orçamentos
             </Link>
             <Link
-              href="/goals"
+              href="/metas"
               className="text-sm text-gray-300 hover:text-white"
             >
               Metas
