@@ -3,7 +3,12 @@
 // Pure-function tests: no DOM, no database — just input/output.
 
 import { describe, it, expect } from 'vitest'
-import { budgetStatus, monthRange } from '@/lib/budget'
+import {
+  budgetStatus,
+  monthRange,
+  parseBudgetPeriod,
+  shiftPeriod,
+} from '@/lib/budget'
 
 describe('budgetStatus', () => {
   it('reports "ok" below 80% of the limit', () => {
@@ -65,5 +70,59 @@ describe('monthRange', () => {
     const { gte, lt } = monthRange(2026, 12)
     expect(gte.toISOString()).toBe('2026-12-01T00:00:00.000Z')
     expect(lt.toISOString()).toBe('2027-01-01T00:00:00.000Z')
+  })
+})
+
+describe('parseBudgetPeriod', () => {
+  const now = new Date('2026-06-13T00:00:00.000Z')
+
+  it('reads a valid month/year from the params', () => {
+    expect(parseBudgetPeriod({ month: '3', year: '2025' }, now)).toEqual({
+      month: 3,
+      year: 2025,
+    })
+  })
+
+  it('falls back to the current month when params are missing', () => {
+    expect(parseBudgetPeriod({}, now)).toEqual({ month: 6, year: 2026 })
+  })
+
+  it('falls back when the month is out of range', () => {
+    expect(parseBudgetPeriod({ month: '13', year: '2026' }, now)).toEqual({
+      month: 6,
+      year: 2026,
+    })
+  })
+
+  it('falls back when values are not numbers', () => {
+    expect(parseBudgetPeriod({ month: 'abc', year: '2026' }, now)).toEqual({
+      month: 6,
+      year: 2026,
+    })
+  })
+
+  it('takes the first value when a param repeats', () => {
+    expect(parseBudgetPeriod({ month: ['4'], year: ['2024'] }, now)).toEqual({
+      month: 4,
+      year: 2024,
+    })
+  })
+})
+
+describe('shiftPeriod', () => {
+  it('moves to the next month within the same year', () => {
+    expect(shiftPeriod({ month: 6, year: 2026 }, 1)).toEqual({ month: 7, year: 2026 })
+  })
+
+  it('moves to the previous month within the same year', () => {
+    expect(shiftPeriod({ month: 6, year: 2026 }, -1)).toEqual({ month: 5, year: 2026 })
+  })
+
+  it('rolls forward from December to January of the next year', () => {
+    expect(shiftPeriod({ month: 12, year: 2026 }, 1)).toEqual({ month: 1, year: 2027 })
+  })
+
+  it('rolls back from January to December of the previous year', () => {
+    expect(shiftPeriod({ month: 1, year: 2026 }, -1)).toEqual({ month: 12, year: 2025 })
   })
 })

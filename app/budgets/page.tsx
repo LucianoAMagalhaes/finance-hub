@@ -7,20 +7,26 @@
 
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
-import { monthRange, MONTH_LABELS } from '@/lib/budget'
+import { monthRange, parseBudgetPeriod, budgetStatus } from '@/lib/budget'
 import { BudgetForm } from './budget-form'
 import { BudgetList, type BudgetRow } from './budget-list'
+import { BudgetPeriodNav } from './budget-period-nav'
+import { BudgetOverview } from './budget-overview'
 
 // Always render fresh data: spending changes as transactions are added.
 export const dynamic = 'force-dynamic'
 
-export default async function BudgetsPage() {
+// A page in the App Router receives the URL's query string as `searchParams`.
+// We read the period (?month=&year=) from it so the month navigation works and
+// the URL stays shareable; missing/invalid values fall back to the current month.
+export default async function BudgetsPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>
+}) {
   const user = await getLocalUser()
 
-  // Slice 1 shows the current month. A period selector comes in a later slice.
-  const now = new Date()
-  const month = now.getUTCMonth() + 1 // getUTCMonth is 0-based
-  const year = now.getUTCFullYear()
+  const { month, year } = parseBudgetPeriod(searchParams, new Date())
   const { gte, lt } = monthRange(year, month)
 
   // Fetch in parallel:
@@ -76,17 +82,32 @@ export default async function BudgetsPage() {
   const totalLimit = rows.reduce((sum, r) => sum + r.amountLimit, 0)
   const totalSpent = rows.reduce((sum, r) => sum + r.spent, 0)
 
+  // Count budgets by alert level for the overview band. Reusing budgetStatus
+  // keeps the thresholds identical to what each card shows.
+  const counts = { ok: 0, warning: 0, over: 0 }
+  for (const r of rows) {
+    counts[budgetStatus(r.spent, r.amountLimit).level] += 1
+  }
+
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
-        <p className="text-sm text-gray-500">
-          Limites de gasto por pote em {MONTH_LABELS[month]} de {year}.
-        </p>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
+          <p className="text-sm text-gray-500">Limites de gasto por pote.</p>
+        </div>
+        {/* Move between months — the period lives in the URL. */}
+        <BudgetPeriodNav month={month} year={year} />
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="order-2 lg:order-1">
+        <section className="order-2 space-y-4 lg:order-1">
+          <BudgetOverview
+            ok={counts.ok}
+            warning={counts.warning}
+            over={counts.over}
+            unbudgeted={availableCategories.length}
+          />
           <BudgetList items={rows} totalLimit={totalLimit} totalSpent={totalSpent} />
         </section>
         <aside className="order-1 lg:order-2">
