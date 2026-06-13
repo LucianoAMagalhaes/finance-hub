@@ -50,25 +50,6 @@ const CATEGORIES: Array<{
   { name: 'Outras Receitas', icon: '➕', color: '#6b7280', type: 'income' },
 ]
 
-// --- Subcategories (free spending areas) ---------------------------------
-// Chosen freely per transaction, not tied to any category. Seeded as expense
-// areas (the classic Phase 1 list); the user can add income areas later.
-const SUBCATEGORIES: Array<{
-  name: string
-  icon: string
-  color: string
-  type: TransactionType
-}> = [
-  { name: 'Alimentação', icon: '🍽️', color: '#ef4444', type: 'expense' },
-  { name: 'Moradia', icon: '🏡', color: '#f97316', type: 'expense' },
-  { name: 'Transporte', icon: '🚗', color: '#eab308', type: 'expense' },
-  { name: 'Saúde', icon: '🏥', color: '#22c55e', type: 'expense' },
-  { name: 'Lazer', icon: '🎮', color: '#06b6d4', type: 'expense' },
-  { name: 'Educação', icon: '📖', color: '#3b82f6', type: 'expense' },
-  { name: 'Utilidades', icon: '💡', color: '#8b5cf6', type: 'expense' },
-  { name: 'Outros', icon: '📦', color: '#6b7280', type: 'expense' },
-]
-
 // --- Tags (markers/marcadores) -------------------------------------------
 // Reusable free-form labels. We seed a few common ones; the user creates more
 // on the fly while adding transactions.
@@ -105,22 +86,7 @@ async function main() {
       `${CATEGORIES.length - categoriesCreated} already existed`,
   )
 
-  // 3) Subcategories — same check-then-create strategy.
-  let subcategoriesCreated = 0
-  for (const subcategory of SUBCATEGORIES) {
-    const existing = await prisma.subcategory.findFirst({
-      where: { userId: user.id, name: subcategory.name, type: subcategory.type },
-    })
-    if (existing) continue
-    await prisma.subcategory.create({ data: { ...subcategory, userId: user.id } })
-    subcategoriesCreated++
-  }
-  console.log(
-    `✓ Subcategories: ${subcategoriesCreated} created, ` +
-      `${SUBCATEGORIES.length - subcategoriesCreated} already existed`,
-  )
-
-  // 4) Tags. Tag has a unique (userId, name) constraint, so a real `upsert`
+  // 3) Tags. Tag has a unique (userId, name) constraint, so a real `upsert`
   //    works here. The composite unique key is named `userId_name` by Prisma.
   //    Upsert is naturally idempotent: existing tags are left untouched.
   for (const tag of TAGS) {

@@ -47,10 +47,9 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations: one user owns many categories, subcategories, tags,
-  // transactions, budgets and goals.
+  // Relations: one user owns many categories, tags, transactions,
+  // budgets and goals.
   categories    Category[]
-  subcategories Subcategory[]
   tags          Tag[]
   transactions  Transaction[]
   budgets       Budget[]
@@ -79,26 +78,6 @@ model Category {
   budgets      Budget[]
 
   @@map("categories")
-}
-
-// A Subcategory is a finer area of spending/earning (Alimentação, Transporte,
-// Saúde...). It is chosen FREELY per transaction and is NOT tied to a parent
-// category — the same "Transporte" can appear under "Conforto" (gasoline) or
-// "Custos Fixos" (bus to work). It is optional on a transaction.
-model Subcategory {
-  id    String          @id @default(cuid())
-  name  String
-  icon  String
-  color String
-  type  TransactionType
-
-  // Owner of this subcategory.
-  userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  transactions Transaction[]
-
-  @@map("subcategories")
 }
 
 // A Tag (marcador) is a reusable free-form label that can be attached to a
@@ -138,9 +117,6 @@ model Transaction {
   // The "jar" — required.
   categoryId    String       @map("category_id")
   category      Category     @relation(fields: [categoryId], references: [id])
-  // The spending area — optional, chosen freely.
-  subcategoryId String?      @map("subcategory_id")
-  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
   // At most one reusable marker — optional.
   tagId         String?      @map("tag_id")
   tag           Tag?         @relation(fields: [tagId], references: [id])

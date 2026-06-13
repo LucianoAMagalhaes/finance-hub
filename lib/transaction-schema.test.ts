@@ -22,11 +22,9 @@ describe('transactionInputSchema', () => {
   it('normalizes empty optional relations to null', () => {
     const result = transactionInputSchema.parse({
       ...valid,
-      subcategoryId: '',
       tagId: '',
       notes: '',
     })
-    expect(result.subcategoryId).toBeNull()
     expect(result.tagId).toBeNull()
     expect(result.notes).toBeNull()
   })
@@ -34,10 +32,8 @@ describe('transactionInputSchema', () => {
   it('keeps provided optional relations', () => {
     const result = transactionInputSchema.parse({
       ...valid,
-      subcategoryId: 'sub_1',
       tagId: 'tag_1',
     })
-    expect(result.subcategoryId).toBe('sub_1')
     expect(result.tagId).toBe('tag_1')
   })
 

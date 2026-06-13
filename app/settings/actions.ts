@@ -2,7 +2,7 @@
 //
 // "use server" marks every export here as a function that always runs on the
 // server, even when called from a Client Component. They cover the profile plus
-// the three editable catalogs (categories, subcategories, tags). Every mutation
+// the editable catalogs (categories and tags). Every mutation
 // is scoped to the local user (Phase 1 is single-user — see lib/user.ts), and
 // updates/deletes use updateMany/deleteMany filtered by userId so a forged id
 // can never touch another user's row (same security pattern as the other
@@ -17,7 +17,6 @@ import { getLocalUser } from '@/lib/user'
 import {
   profileSchema,
   categorySchema,
-  subcategorySchema,
   tagSchema,
 } from '@/lib/settings-schema'
 
@@ -147,64 +146,6 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
   } catch (error) {
     console.error('deleteCategory failed:', error)
     return { ok: false, error: 'Não foi possível excluir a categoria.' }
-  }
-}
-
-// --- Subcategories --------------------------------------------------------
-
-/** Creates a subcategory (a free spending/earning area) for the local user. */
-export async function createSubcategory(input: unknown): Promise<ActionResult> {
-  const parsed = subcategorySchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
-
-  try {
-    const user = await getLocalUser()
-    await prisma.subcategory.create({ data: { userId: user.id, ...parsed.data } })
-    revalidatePath('/settings')
-    return { ok: true }
-  } catch (error) {
-    console.error('createSubcategory failed:', error)
-    return { ok: false, error: 'Não foi possível criar a subcategoria.' }
-  }
-}
-
-/** Updates a subcategory owned by the local user. */
-export async function updateSubcategory(id: string, input: unknown): Promise<ActionResult> {
-  const parsed = subcategorySchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
-
-  try {
-    const user = await getLocalUser()
-    const result = await prisma.subcategory.updateMany({
-      where: { id, userId: user.id },
-      data: parsed.data,
-    })
-    if (result.count === 0) return { ok: false, error: 'Subcategoria não encontrada.' }
-
-    revalidatePath('/settings')
-    return { ok: true }
-  } catch (error) {
-    console.error('updateSubcategory failed:', error)
-    return { ok: false, error: 'Não foi possível atualizar a subcategoria.' }
-  }
-}
-
-/**
- * Deletes a subcategory owned by the local user. Unlike categories, the
- * transaction → subcategory relation is ON DELETE SET NULL, so deleting one is
- * always safe: any transaction using it simply loses its (optional) subcategory.
- */
-export async function deleteSubcategory(id: string): Promise<ActionResult> {
-  try {
-    const user = await getLocalUser()
-    const result = await prisma.subcategory.deleteMany({ where: { id, userId: user.id } })
-    if (result.count === 0) return { ok: false, error: 'Subcategoria não encontrada.' }
-
-    revalidatePath('/settings')
-    return { ok: true }
-  } catch (error) {
-    console.error('deleteSubcategory failed:', error)
-    return { ok: false, error: 'Não foi possível excluir a subcategoria.' }
   }
 }
 

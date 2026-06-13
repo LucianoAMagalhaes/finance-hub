@@ -22,7 +22,6 @@ export type TransactionRow = {
   paymentMethod: PaymentMethod
   notes: string | null
   category: { name: string; icon: string; color: string } | null
-  subcategory: { name: string; icon: string } | null
   tag: { name: string } | null
 }
 
@@ -68,18 +67,13 @@ export function TransactionList({
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-100">{t.description}</div>
-                  <div className="flex gap-2 text-xs text-gray-400">
-                    {t.subcategory && (
-                      <span>
-                        {t.subcategory.icon} {t.subcategory.name}
-                      </span>
-                    )}
-                    {t.tag && (
+                  {t.tag && (
+                    <div className="flex gap-2 text-xs text-gray-400">
                       <span className="rounded-full bg-gray-800 px-2 py-0.5">
                         #{t.tag.name}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {t.category ? (

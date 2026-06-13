@@ -1,4 +1,4 @@
-// Category / Subcategory manager — list + inline add/edit/delete.
+// Category manager — list + inline add/edit/delete.
 //
 // "use client": this is interactive (add form, per-row edit toggle, delete
 // confirmation, pending states), so it runs in the browser. The Settings page
@@ -7,9 +7,8 @@
 // Server Component (the page is force-dynamic), so the list always reflects the
 // database without us keeping a separate client-side copy.
 //
-// Categories (the 6 "jars") and subcategories share the exact same shape, so one
-// component handles both — `kind` only picks which Server Actions to call and
-// the labels to show.
+// `kind` is kept as a small indirection (currently only 'category') so the
+// component stays easy to extend and the call site reads explicitly.
 
 'use client'
 
@@ -21,9 +20,6 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  createSubcategory,
-  updateSubcategory,
-  deleteSubcategory,
   type ActionResult,
 } from './actions'
 
@@ -36,7 +32,7 @@ export type EntityRow = {
   type: 'income' | 'expense'
 }
 
-type Kind = 'category' | 'subcategory'
+type Kind = 'category'
 
 // Per-kind wiring: which actions to call and the singular noun for messages.
 const CONFIG: Record<
@@ -53,12 +49,6 @@ const CONFIG: Record<
     create: createCategory,
     update: updateCategory,
     remove: deleteCategory,
-  },
-  subcategory: {
-    noun: 'subcategoria',
-    create: createSubcategory,
-    update: updateSubcategory,
-    remove: deleteSubcategory,
   },
 }
 

@@ -4,7 +4,7 @@
 // client forms (instant feedback) and the Server Actions (never trust the
 // browser) — same pattern as transaction-schema.ts / budget-schema.ts /
 // goal-schema.ts. Settings edits the user profile plus the three customizable
-// catalogs: categories, subcategories and tags.
+// catalogs: categories and tags.
 
 import { z } from 'zod'
 import { TRANSACTION_TYPES } from '@/lib/constants'
@@ -47,9 +47,8 @@ export const profileSchema = z.object({
 export type ProfileInput = z.input<typeof profileSchema>
 export type ProfileParsed = z.output<typeof profileSchema>
 
-// --- Category / Subcategory ----------------------------------------------
-// Categories (the 6 "jars") and subcategories (free spending areas) have the
-// exact same editable shape, so they share one schema.
+// --- Category -------------------------------------------------------------
+// A category is one of the budgeting "jars" (pote): name, icon, color and type.
 
 export const categorySchema = z.object({
   name: z.string().trim().min(1, 'Informe um nome').max(40, 'Nome muito longo'),
@@ -60,11 +59,6 @@ export const categorySchema = z.object({
 
 export type CategoryInput = z.input<typeof categorySchema>
 export type CategoryParsed = z.output<typeof categorySchema>
-
-// Subcategories are validated with the very same rules; the alias keeps call
-// sites readable and leaves room to diverge later without a rename.
-export const subcategorySchema = categorySchema
-export type SubcategoryParsed = CategoryParsed
 
 // --- Tag ------------------------------------------------------------------
 // A reusable marker: just a name (unique per user) and an optional color.

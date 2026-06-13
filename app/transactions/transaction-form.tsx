@@ -24,7 +24,6 @@ import { createTransaction, updateTransaction } from './actions'
 
 // Minimal serializable shapes passed down from the Server Component.
 type CategoryOption = { id: string; name: string; icon: string; type: TransactionType }
-type SubcategoryOption = CategoryOption
 type TagOption = { id: string; name: string }
 
 // When present, the form runs in "edit mode": prefilled and saving with
@@ -38,14 +37,12 @@ export type EditingTransaction = {
   type: TransactionType
   paymentMethod: PaymentMethod
   categoryId: string
-  subcategoryId: string | null
   tagId: string | null
   notes: string | null
 }
 
 type Props = {
   categories: CategoryOption[]
-  subcategories: SubcategoryOption[]
   tags: TagOption[]
   // Omitted/undefined → create mode; provided → edit mode.
   editing?: EditingTransaction
@@ -58,7 +55,6 @@ function today(): string {
 
 export function TransactionForm({
   categories,
-  subcategories,
   tags,
   editing,
 }: Props) {
@@ -76,9 +72,6 @@ export function TransactionForm({
   )
   const [date, setDate] = useState(editing?.date ?? today())
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? '')
-  const [subcategoryId, setSubcategoryId] = useState(
-    editing?.subcategoryId ?? '',
-  )
   const [tagId, setTagId] = useState(editing?.tagId ?? '')
   const [paymentMethod, setPaymentMethod] = useState<string>(
     editing?.paymentMethod ?? 'pix',
@@ -88,16 +81,14 @@ export function TransactionForm({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // Category and subcategory options depend on the chosen type.
+  // Category options depend on the chosen type.
   const categoryOptions = categories.filter((c) => c.type === type)
-  const subcategoryOptions = subcategories.filter((s) => s.type === type)
 
-  // When the type flips, previously chosen category/subcategory may no longer
-  // be valid, so we clear them.
+  // When the type flips, the previously chosen category may no longer be valid,
+  // so we clear it.
   function handleTypeChange(next: TransactionType) {
     setType(next)
     setCategoryId('')
-    setSubcategoryId('')
   }
 
   function resetForm() {
@@ -105,7 +96,6 @@ export function TransactionForm({
     setAmount('')
     setDate(today())
     setCategoryId('')
-    setSubcategoryId('')
     setTagId('')
     setNotes('')
   }
@@ -129,7 +119,6 @@ export function TransactionForm({
       type,
       paymentMethod,
       categoryId,
-      subcategoryId,
       tagId,
       notes,
     }
@@ -240,43 +229,23 @@ export function TransactionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={label} htmlFor="category">
-            Categoria
-          </label>
-          <select
-            id="category"
-            className={field}
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <option value="">Selecione…</option>
-            {categoryOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={label} htmlFor="subcategory">
-            Subcategoria <span className="text-gray-500">(opcional)</span>
-          </label>
-          <select
-            id="subcategory"
-            className={field}
-            value={subcategoryId}
-            onChange={(e) => setSubcategoryId(e.target.value)}
-          >
-            <option value="">Nenhuma</option>
-            {subcategoryOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.icon} {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className={label} htmlFor="category">
+          Categoria
+        </label>
+        <select
+          id="category"
+          className={field}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+        >
+          <option value="">Selecione…</option>
+          {categoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.icon} {c.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
