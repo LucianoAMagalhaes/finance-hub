@@ -22,21 +22,21 @@ const LEVEL_STYLES: Record<
   { bar: string; text: string; badge: string; label: string }
 > = {
   ok: {
-    bar: 'bg-green-500',
-    text: 'text-gray-500',
-    badge: 'bg-green-50 text-green-700',
+    bar: 'bg-green-9500',
+    text: 'text-gray-400',
+    badge: 'bg-green-950 text-green-300',
     label: 'No limite',
   },
   warning: {
-    bar: 'bg-amber-500',
-    text: 'text-amber-700',
-    badge: 'bg-amber-50 text-amber-700',
+    bar: 'bg-amber-9500',
+    text: 'text-amber-300',
+    badge: 'bg-amber-950 text-amber-300',
     label: 'Atenção: 80%+',
   },
   over: {
-    bar: 'bg-red-500',
-    text: 'text-red-700',
-    badge: 'bg-red-50 text-red-700',
+    bar: 'bg-red-9500',
+    text: 'text-red-300',
+    badge: 'bg-red-950 text-red-300',
     label: 'Estourou',
   },
 }
@@ -52,7 +52,7 @@ export function BudgetList({
 }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
         Nenhum orçamento neste mês. Crie o primeiro no formulário ao lado.
       </div>
     )
@@ -63,9 +63,9 @@ export function BudgetList({
   return (
     <div className="space-y-4">
       {/* Period summary across all budgets. */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-gray-700">Total do mês</span>
+          <span className="font-medium text-gray-200">Total do mês</span>
           <span className={LEVEL_STYLES[totals.level].text}>
             <Money cents={totalSpent} /> de <Money cents={totalLimit} /> (
             {totals.percent}%)
@@ -82,7 +82,7 @@ export function BudgetList({
           return (
             <li
               key={b.id}
-              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+              className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span
@@ -111,7 +111,7 @@ export function BudgetList({
                   <Money cents={b.spent} /> de <Money cents={b.amountLimit} /> (
                   {status.percent}%)
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   {status.remaining >= 0 ? (
                     <>
                       Resta <Money cents={status.remaining} />
@@ -124,7 +124,7 @@ export function BudgetList({
                 </span>
               </div>
 
-              <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
+              <div className="mt-3 flex justify-end border-t border-gray-800 pt-3">
                 <BudgetRowActions id={b.id} categoryName={b.category.name} />
               </div>
             </li>
@@ -141,7 +141,7 @@ export function BudgetList({
 function ProgressBar({ percent, level }: { percent: number; level: BudgetLevel }) {
   const width = Math.min(percent, 100)
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
       <div
         className={`h-full rounded-full transition-all ${LEVEL_STYLES[level].bar}`}
         style={{ width: `${width}%` }}

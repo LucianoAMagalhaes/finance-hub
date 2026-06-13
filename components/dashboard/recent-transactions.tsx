@@ -19,21 +19,21 @@ export type RecentRow = {
 
 export function RecentTransactions({ items }: { items: RecentRow[] }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-700">Últimas transações</h2>
+        <h2 className="text-sm font-semibold text-gray-200">Últimas transações</h2>
         <Link
           href="/transactions"
-          className="text-xs text-gray-500 hover:text-gray-900"
+          className="text-xs text-gray-400 hover:text-white"
         >
           Ver todas →
         </Link>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma transação ainda.</p>
+        <p className="text-sm text-gray-400">Nenhuma transação ainda.</p>
       ) : (
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-gray-800">
           {items.map((t) => {
             // Income counts positive, expense negative, so the colored Money
             // shows the right sign and color.
@@ -41,10 +41,10 @@ export function RecentTransactions({ items }: { items: RecentRow[] }) {
             return (
               <li key={t.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-800">
+                  <p className="truncate text-sm font-medium text-gray-100">
                     {t.description}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400">
                     <span style={{ color: t.category.color }}>
                       {t.category.icon} {t.category.name}
                     </span>{' '}

@@ -2,22 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Permanent dark theme. We no longer flip on prefers-color-scheme: the whole UI
+   is designed for dark surfaces, so we want it dark regardless of the OS setting
+   (a light OS used to leave inputs with light text on light fields — faded). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a; /* app backdrop (behind cards) */
+  --foreground: #ededed; /* default text */
+  /* Tells the browser to render native controls (date pickers, dropdown chrome,
+     scrollbars) in dark mode, so their text/icons stay readable. */
+  color-scheme: dark;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Form controls default to readable colors on dark surfaces. Components set
+   borders/spacing via Tailwind, but many inputs don't set their own background
+   or text color — without this they'd inherit the page and render faded. The
+   color picker keeps its native swatch (excluded). */
+input:not([type='color']),
+select,
+textarea {
+  background-color: #1f2937; /* gray-800 */
+  color: #f3f4f6; /* gray-100 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280; /* gray-500 */
 }
 
 @layer utilities {

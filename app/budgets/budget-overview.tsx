@@ -26,21 +26,21 @@ function Stat({
   const muted = value === 0
   return (
     <div className="flex flex-col items-center">
-      <span className={`text-2xl font-bold ${muted ? 'text-gray-300' : className}`}>
+      <span className={`text-2xl font-bold ${muted ? 'text-gray-600' : className}`}>
         {value}
       </span>
-      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-xs text-gray-400">{label}</span>
     </div>
   )
 }
 
 export function BudgetOverview({ ok, warning, over, unbudgeted }: Props) {
   return (
-    <div className="grid grid-cols-4 gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <Stat value={ok} label="No limite" className="text-green-600" />
-      <Stat value={warning} label="Atenção" className="text-amber-600" />
-      <Stat value={over} label="Estourados" className="text-red-600" />
-      <Stat value={unbudgeted} label="Sem orçamento" className="text-gray-600" />
+    <div className="grid grid-cols-4 gap-2 rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
+      <Stat value={ok} label="No limite" className="text-green-500" />
+      <Stat value={warning} label="Atenção" className="text-amber-500" />
+      <Stat value={over} label="Estourados" className="text-red-500" />
+      <Stat value={unbudgeted} label="Sem orçamento" className="text-gray-300" />
     </div>
   )
 }

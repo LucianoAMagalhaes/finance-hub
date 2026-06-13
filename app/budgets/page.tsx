@@ -94,7 +94,7 @@ export default async function BudgetsPage({
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
-          <p className="text-sm text-gray-500">Limites de gasto por pote.</p>
+          <p className="text-sm text-gray-400">Limites de gasto por pote.</p>
         </div>
         {/* Move between months — the period lives in the URL. */}
         <BudgetPeriodNav month={month} year={year} />

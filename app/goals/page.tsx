@@ -34,7 +34,7 @@ export default async function GoalsPage() {
     <main className="mx-auto max-w-5xl p-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Metas</h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Acompanhe o progresso e o aporte mensal sugerido de cada meta.
         </p>
       </header>

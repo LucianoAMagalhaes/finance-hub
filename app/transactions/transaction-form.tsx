@@ -169,13 +169,13 @@ export function TransactionForm({
 
   // Shared Tailwind classes for inputs, to keep the markup readable.
   const field =
-    'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none'
-  const label = 'mb-1 block text-sm font-medium text-gray-700'
+    'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+  const label = 'mb-1 block text-sm font-medium text-gray-200'
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+      className="space-y-4 rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm"
     >
       <h2 className="text-lg font-semibold">
         {isEditing ? 'Editar transação' : 'Nova transação'}
@@ -190,8 +190,8 @@ export function TransactionForm({
             onClick={() => handleTypeChange(t)}
             className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition ${
               type === t
-                ? 'border-gray-900 bg-gray-900 text-white'
-                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                ? 'border-blue-600 bg-blue-600 text-white'
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
             }`}
           >
             {TRANSACTION_TYPE_LABELS[t]}
@@ -261,7 +261,7 @@ export function TransactionForm({
         </div>
         <div>
           <label className={label} htmlFor="subcategory">
-            Subcategoria <span className="text-gray-400">(opcional)</span>
+            Subcategoria <span className="text-gray-500">(opcional)</span>
           </label>
           <select
             id="subcategory"
@@ -299,7 +299,7 @@ export function TransactionForm({
         </div>
         <div>
           <label className={label} htmlFor="tag">
-            Marcador <span className="text-gray-400">(opcional)</span>
+            Marcador <span className="text-gray-500">(opcional)</span>
           </label>
           <select
             id="tag"
@@ -319,7 +319,7 @@ export function TransactionForm({
 
       <div>
         <label className={label} htmlFor="notes">
-          Observação <span className="text-gray-400">(opcional)</span>
+          Observação <span className="text-gray-500">(opcional)</span>
         </label>
         <textarea
           id="notes"
@@ -331,10 +331,10 @@ export function TransactionForm({
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
           Transação salva!
         </p>
       )}
@@ -343,7 +343,7 @@ export function TransactionForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+          className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
           {isPending
             ? 'Salvando…'
@@ -355,7 +355,7 @@ export function TransactionForm({
           // In edit mode, give the user an explicit way out without saving.
           <Link
             href="/transactions"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+            className="rounded-md border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-gray-800"
           >
             Cancelar
           </Link>

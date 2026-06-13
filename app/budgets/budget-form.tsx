@@ -107,18 +107,18 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
   }
 
   const field =
-    'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none'
-  const label = 'mb-1 block text-sm font-medium text-gray-700'
+    'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+  const label = 'mb-1 block text-sm font-medium text-gray-200'
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+      className="space-y-4 rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm"
     >
       <h2 className="text-lg font-semibold">
         {editing ? 'Editar orçamento' : 'Novo orçamento'}
       </h2>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-400">
         Para {MONTH_LABELS[month]} de {year}.
       </p>
 
@@ -129,7 +129,7 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
         {editing ? (
           // In edit mode the category is fixed — show it read-only instead of a
           // dropdown so it's clear what's being changed.
-          <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <p className="rounded-md bg-gray-800 px-3 py-2 text-sm text-gray-200">
             {editing.category.icon} {editing.category.name}
           </p>
         ) : (
@@ -148,7 +148,7 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
               ))}
             </select>
             {categories.length === 0 && (
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Todas as categorias já têm orçamento neste mês.
               </p>
             )}
@@ -171,10 +171,10 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
           Orçamento salvo!
         </p>
       )}
@@ -183,7 +183,7 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
         <button
           type="submit"
           disabled={isPending || (!editing && categories.length === 0)}
-          className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
           {isPending
             ? 'Salvando…'
@@ -197,7 +197,7 @@ export function BudgetForm({ categories, month, year, editing }: Props) {
             type="button"
             onClick={() => router.push('/budgets')}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-md border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 transition hover:bg-gray-800 disabled:opacity-50"
           >
             Cancelar
           </button>

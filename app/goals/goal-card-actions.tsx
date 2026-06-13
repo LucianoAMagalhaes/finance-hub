@@ -69,12 +69,12 @@ export function GoalCardActions({
   }
 
   return (
-    <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+    <div className="mt-3 space-y-2 border-t border-gray-800 pt-3">
       {/* Register a contribution — only while the goal still needs funding. */}
       {!complete && (
         <form onSubmit={handleContribute} className="flex gap-2">
           <input
-            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-700 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Registrar aporte (R$)"
@@ -84,7 +84,7 @@ export function GoalCardActions({
           <button
             type="submit"
             disabled={isPending}
-            className="whitespace-nowrap rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+            className="whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             Aportar
           </button>
@@ -92,10 +92,10 @@ export function GoalCardActions({
       )}
 
       <div className="flex items-center justify-end gap-3">
-        {error && <span className="mr-auto text-xs text-red-600">{error}</span>}
+        {error && <span className="mr-auto text-xs text-red-500">{error}</span>}
         <Link
           href={`/goals/${id}/edit`}
-          className="text-xs font-medium text-gray-500 hover:text-gray-900"
+          className="text-xs font-medium text-gray-400 hover:text-white"
         >
           Editar
         </Link>
@@ -103,7 +103,7 @@ export function GoalCardActions({
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+          className="text-xs font-medium text-red-500 hover:text-red-300 disabled:opacity-50"
         >
           Excluir
         </button>
