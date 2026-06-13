@@ -8,12 +8,21 @@
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
 import { monthRange, budgetStatus, MONTH_LABELS } from '@/lib/budget'
+import {
+  lastNMonths,
+  buildMonthlySeries,
+  type SeriesTransaction,
+} from '@/lib/dashboard'
 import { SummaryCards } from '@/components/dashboard/summary-cards'
 import { BudgetSummary } from '@/components/dashboard/budget-summary'
+import { BalanceChart } from '@/components/dashboard/balance-chart'
 import {
   RecentTransactions,
   type RecentRow,
 } from '@/components/dashboard/recent-transactions'
+
+// How many months the evolution chart looks back (including the current month).
+const CHART_MONTHS = 6
 
 // Always render fresh data: the dashboard reflects the latest transactions.
 export const dynamic = 'force-dynamic'
@@ -26,11 +35,18 @@ export default async function DashboardPage() {
   const year = now.getUTCFullYear()
   const { gte, lt } = monthRange(year, month)
 
+  // The 6-month window for the evolution chart: the months run oldest → newest,
+  // so the first one gives the lower bound (gte) and the current month's `lt`
+  // (already computed above) gives the exclusive upper bound.
+  const chartMonths = lastNMonths({ month, year }, CHART_MONTHS)
+  const chartStart = monthRange(chartMonths[0].year, chartMonths[0].month).gte
+
   // Fetch everything in parallel (independent queries, one round-trip each):
   //  - totals per type this month;
   //  - this month's budgets and the spending per category;
   //  - the latest 5 transactions.
-  const [totalsByType, budgets, spentByCategory, recent] = await Promise.all([
+  const [totalsByType, budgets, spentByCategory, recent, chartTxns] =
+    await Promise.all([
     prisma.transaction.groupBy({
       by: ['type'],
       where: { userId: user.id, date: { gte, lt } },
@@ -58,7 +74,17 @@ export default async function DashboardPage() {
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       take: 5,
     }),
+    // Raw rows for the 6-month chart: we fetch the minimal fields and aggregate
+    // per month in JS (buildMonthlySeries), since Prisma can't group by month.
+    prisma.transaction.findMany({
+      where: { userId: user.id, date: { gte: chartStart, lt } },
+      select: { type: true, amount: true, date: true },
+    }),
   ])
+
+  // Turn the flat rows into one point per month (zeros for empty months). The
+  // cast is safe: `type` is always 'income' | 'expense' in our data.
+  const series = buildMonthlySeries(chartTxns as SeriesTransaction[], chartMonths)
 
   // Pull the income/expense sums out of the grouped result.
   const income =
@@ -90,6 +116,8 @@ export default async function DashboardPage() {
       </header>
 
       <SummaryCards income={income} expense={expense} />
+
+      <BalanceChart data={series} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <BudgetSummary
