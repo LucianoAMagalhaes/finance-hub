@@ -46,6 +46,10 @@ type Props = {
   tags: TagOption[]
   // Omitted/undefined → create mode; provided → edit mode.
   editing?: EditingTransaction
+  // Called after a successful create. The modal uses it to close itself; when
+  // absent (e.g. the standalone edit page) the form shows an inline success
+  // message instead.
+  onSuccess?: () => void
 }
 
 // Today as YYYY-MM-DD for the date input's default value.
@@ -57,6 +61,7 @@ export function TransactionForm({
   categories,
   tags,
   editing,
+  onSuccess,
 }: Props) {
   const router = useRouter()
   const isEditing = editing !== undefined
@@ -149,9 +154,11 @@ export function TransactionForm({
         router.refresh()
       } else {
         resetForm()
-        setSuccess(true)
         // Re-fetch the Server Component so the new row appears immediately.
         router.refresh()
+        // In modal usage onSuccess closes the dialog; otherwise show feedback.
+        if (onSuccess) onSuccess()
+        else setSuccess(true)
       }
     })
   }
@@ -162,14 +169,9 @@ export function TransactionForm({
   const label = 'mb-1 block text-sm font-medium text-gray-200'
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm"
-    >
-      <h2 className="text-lg font-semibold">
-        {isEditing ? 'Editar transação' : 'Nova transação'}
-      </h2>
-
+    // No card chrome here: the modal (create) and the edit page each provide
+    // their own container and title, so the form is just the fields.
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* Type toggle */}
       <div className="flex gap-2">
         {TRANSACTION_TYPES.map((t) => (

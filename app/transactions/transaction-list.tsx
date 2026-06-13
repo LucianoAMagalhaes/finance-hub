@@ -38,7 +38,7 @@ export function TransactionList({
       <div className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
         {filtered
           ? 'Nenhuma transação corresponde aos filtros.'
-          : 'Nenhuma transação ainda. Crie a primeira no formulário ao lado.'}
+          : 'Nenhuma transação ainda. Clique em “+ Nova transação” para criar a primeira.'}
       </div>
     )
   }
