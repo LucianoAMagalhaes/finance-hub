@@ -46,8 +46,12 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 - [x] **`feat/settings`** — perfil + categorias/subcategorias/marcadores personalizados — branch `feat/settings`. Página `/settings` (Server Component) busca os 3 catálogos em paralelo e monta seções em cartões. Validação: `lib/settings-schema.ts` (Zod: `profileSchema`, `categorySchema`/`subcategorySchema` idênticos, `tagSchema`; cor hex, ícone emoji, tipo via `TRANSACTION_TYPES`) + testes. Server Actions `app/settings/actions.ts` (10) escopadas ao dono (`updateMany`/`deleteMany` com `userId`): `updateProfile` (e-mail duplicado → P2002); categoria create/update/**delete com guard de uso** (FK RESTRICT → conta transações/orçamentos e recusa antes de tentar); subcategoria create/update/delete (FK SET NULL → seguro, transação perde o vínculo opcional); tag create/update/delete (nome duplicado → P2002). Detecção de erro Prisma por `code` (duck-typing — `instanceof` falha em fronteira de módulos). UI client: `profile-form.tsx`, `entity-manager.tsx` (categorias+subcategorias num componente genérico por `kind`, com add + edição/exclusão **inline** por linha), `tag-manager.tsx` (chips coloridos); `<input type="color">` e seletor de tipo; nav ganhou "Configurações". Verificado: `tsc`/lint limpos, 84 testes; 21 comportamentos confirmados contra o banco (ownership, guard de categoria em uso, SET NULL em subcategoria, duplicidade de tag, profile); `/settings` 200 e confirmado visualmente no app.
 
-### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `docs/initial-adrs` — ADRs 001–005
+- [x] **`docs/initial-adrs`** — ADRs 001–005 — branch `docs/initial-adrs`. Cinco ADRs em `docs/adr/` (Next.js, PostgreSQL+Docker, Prisma, local-only/single-user, centavos) no formato do CLAUDE.md, em português com termos técnicos em inglês e referências cruzadas entre eles; índice em `docs/adr/README.md`. Documentação pura, sem mudança de código.
+
+### Fase 1 — concluída ✅
+Todas as funcionalidades da Fase 1 estão entregues: transações, orçamentos,
+metas, dashboard, configurações e ADRs iniciais. Próximo grande passo é a
+**Fase 2 — Investimentos** (ver abaixo), a ser iniciada quando decidido.
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
