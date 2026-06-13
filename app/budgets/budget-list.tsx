@@ -6,6 +6,7 @@
 
 import { Money } from '@/components/money'
 import { budgetStatus, type BudgetLevel } from '@/lib/budget'
+import { BudgetRowActions } from './budget-row-actions'
 
 // The shape the page builds for each budget.
 export type BudgetRow = {
@@ -121,6 +122,10 @@ export function BudgetList({
                     </>
                   )}
                 </span>
+              </div>
+
+              <div className="mt-3 flex justify-end border-t border-gray-100 pt-3">
+                <BudgetRowActions id={b.id} categoryName={b.category.name} />
               </div>
             </li>
           )

@@ -1,34 +1,50 @@
-// Budget creation form.
+// Budget form — handles both creating and editing.
 //
 // "use client": it uses React state and event handlers, so it runs in the
 // browser. The page that renders it stays a Server Component that reads the DB.
 // Mirrors transaction-form.tsx: client-side Zod validation for instant feedback,
 // then the Server Action re-validates with the same schema.
+//
+// A budget's identity is its category + month + year, so editing only changes
+// the limit. In edit mode the category is shown read-only and we call
+// updateBudget instead of createBudget.
 
 'use client'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { parseBRLToCents } from '@/lib/format'
+import { formatBRL, parseBRLToCents } from '@/lib/format'
 import { budgetInputSchema } from '@/lib/budget-schema'
 import { MONTH_LABELS } from '@/lib/budget'
-import { createBudget } from './actions'
+import { createBudget, updateBudget } from './actions'
 
 type CategoryOption = { id: string; name: string; icon: string }
 
+// Data passed when the form opens in edit mode (the budget being changed).
+export type EditingBudget = {
+  id: string
+  amountLimit: number // cents
+  category: { name: string; icon: string }
+}
+
 type Props = {
-  // Expense categories that don't yet have a budget this month.
+  // Expense categories that don't yet have a budget this month (create mode).
   categories: CategoryOption[]
   month: number
   year: number
+  // Present only in edit mode.
+  editing?: EditingBudget
 }
 
-export function BudgetForm({ categories, month, year }: Props) {
+export function BudgetForm({ categories, month, year, editing }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const [categoryId, setCategoryId] = useState('')
-  const [amount, setAmount] = useState('')
+  // Prefill the limit when editing so the user tweaks instead of retyping.
+  const [amount, setAmount] = useState(
+    editing ? formatBRL(editing.amountLimit) : '',
+  )
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -45,6 +61,29 @@ export function BudgetForm({ categories, month, year }: Props) {
       return
     }
 
+    if (editing) {
+      // Edit mode: only the limit changes. Validate just that field with the
+      // shared schema's rule, then call the update action.
+      const parsed = budgetInputSchema.shape.amountLimit.safeParse(cents)
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? 'Dados inválidos')
+        return
+      }
+
+      startTransition(async () => {
+        const result = await updateBudget(editing.id, { amountLimit: cents })
+        if (result.ok) {
+          // Go back to the list, which re-fetches with the new limit.
+          router.push('/budgets')
+          router.refresh()
+        } else {
+          setError(result.error)
+        }
+      })
+      return
+    }
+
+    // Create mode: validate the full payload.
     const payload = { categoryId, amountLimit: cents, month, year }
 
     const parsed = budgetInputSchema.safeParse(payload)
@@ -76,7 +115,9 @@ export function BudgetForm({ categories, month, year }: Props) {
       onSubmit={handleSubmit}
       className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
     >
-      <h2 className="text-lg font-semibold">Novo orçamento</h2>
+      <h2 className="text-lg font-semibold">
+        {editing ? 'Editar orçamento' : 'Novo orçamento'}
+      </h2>
       <p className="text-xs text-gray-500">
         Para {MONTH_LABELS[month]} de {year}.
       </p>
@@ -85,23 +126,33 @@ export function BudgetForm({ categories, month, year }: Props) {
         <label className={label} htmlFor="category">
           Categoria (pote)
         </label>
-        <select
-          id="category"
-          className={field}
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-        >
-          <option value="">Selecione…</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
-        {categories.length === 0 && (
-          <p className="mt-1 text-xs text-gray-400">
-            Todas as categorias já têm orçamento neste mês.
+        {editing ? (
+          // In edit mode the category is fixed — show it read-only instead of a
+          // dropdown so it's clear what's being changed.
+          <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            {editing.category.icon} {editing.category.name}
           </p>
+        ) : (
+          <>
+            <select
+              id="category"
+              className={field}
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value="">Selecione…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon} {c.name}
+                </option>
+              ))}
+            </select>
+            {categories.length === 0 && (
+              <p className="mt-1 text-xs text-gray-400">
+                Todas as categorias já têm orçamento neste mês.
+              </p>
+            )}
+          </>
         )}
       </div>
 
@@ -128,13 +179,30 @@ export function BudgetForm({ categories, month, year }: Props) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending || categories.length === 0}
-        className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
-      >
-        {isPending ? 'Salvando…' : 'Salvar orçamento'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={isPending || (!editing && categories.length === 0)}
+          className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+        >
+          {isPending
+            ? 'Salvando…'
+            : editing
+              ? 'Atualizar limite'
+              : 'Salvar orçamento'}
+        </button>
+        {editing && (
+          // Cancel just navigates back without saving.
+          <button
+            type="button"
+            onClick={() => router.push('/budgets')}
+            disabled={isPending}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   )
 }

@@ -1,0 +1,63 @@
+// Per-card budget actions (edit link + delete button).
+//
+// "use client": deletion needs interactivity — a confirmation prompt, a pending
+// state, and an error message — which only a Client Component can provide. The
+// list itself stays a Server Component; we drop this small island into each card.
+
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { deleteBudget } from './actions'
+
+export function BudgetRowActions({
+  id,
+  categoryName,
+}: {
+  id: string
+  // Used in the confirm() text so the user knows exactly what they're deleting.
+  categoryName: string
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function handleDelete() {
+    // Native confirm() is enough for a local single-user app and avoids pulling
+    // in a modal library this early.
+    const ok = window.confirm(`Excluir o orçamento de "${categoryName}"?`)
+    if (!ok) return
+
+    setError(null)
+    startTransition(async () => {
+      const result = await deleteBudget(id)
+      if (result.ok) {
+        // Re-fetch the Server Component list so the card disappears.
+        router.refresh()
+      } else {
+        setError(result.error)
+      }
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Link
+        href={`/budgets/${id}/edit`}
+        className="text-xs font-medium text-gray-500 hover:text-gray-900"
+      >
+        Editar
+      </Link>
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={isPending}
+        className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+      >
+        {isPending ? 'Excluindo…' : 'Excluir'}
+      </button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </div>
+  )
+}
