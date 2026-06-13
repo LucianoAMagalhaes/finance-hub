@@ -40,10 +40,13 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - [x] Slice 2: **editar e excluir + registrar aporte** — branch `feat/goals-edit-contribute`. Server Actions `updateGoal`/`deleteGoal`/`addContribution` escopadas ao dono (`updateMany`/`deleteMany`/`findFirst` com `userId` → id alheio/inexistente vira "Meta não encontrada"); `toGoalData` centraliza deadline em UTC midnight + re-snapshot do aporte para create e update não divergirem. `addContribution` soma ao `currentAmount` com cap no alvo (aporte além do alvo conclui a meta); valida com `contributionAmountSchema`. Rota dinâmica `app/goals/[id]/edit/page.tsx` (`notFound()` se inexistente/não-dono) reusa `GoalForm` em modo de edição (prop `editing`); `GoalCardActions` (Client) por cartão com aporte inline + Editar + Excluir (`confirm()`). Verificado contra o banco (update aplica e recalcula snapshot, aporte soma e limita no alvo, negativo/alheio rejeitados, delete aplica) e no app (edição 200, id inválido 404).
   - [ ] Slice 3 (a definir conforme necessidade)
 
+- [ ] **`feat/dashboard`** — saldo do mês, gráfico de 6 meses, resumos
+  - [x] Slice 1: **resumo do mês + orçamentos + últimas transações** — branch `feat/dashboard`. Página inicial `/` (`app/page.tsx`, Server Component) substitui o placeholder: totais do mês por tipo via `groupBy` e gasto por categoria em paralelo (`Promise.all`). Componentes apresentacionais em `components/dashboard/`: `SummaryCards` (receitas/despesas/saldo, saldo colorido pelo sinal), `BudgetSummary` (contagem no limite/atenção/estourados reusando `budgetStatus`, link p/ `/budgets`), `RecentTransactions` (últimas 5 por `date desc, createdAt desc`, valor com sinal/cor, link p/ `/transactions`). Sem dependências novas. Verificado pela fonte (receitas/despesas/saldo, contagem de orçamentos, ordem das 5 últimas) e no app (`/` 200).
+  - [ ] Slice 2: gráfico de evolução do saldo (últimos 6 meses) com Recharts
+
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
-2. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
-3. `docs/initial-adrs` — ADRs 001–005
+1. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
+2. `docs/initial-adrs` — ADRs 001–005
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
