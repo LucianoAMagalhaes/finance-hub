@@ -20,17 +20,17 @@ describe('<Money />', () => {
 
   it('is not colored by default', () => {
     const { container } = render(<Money cents={1000} />)
-    expect(container.querySelector('span')).not.toHaveClass('text-green-600')
-    expect(container.querySelector('span')).not.toHaveClass('text-red-600')
+    expect(container.querySelector('span')).not.toHaveClass('text-green-500')
+    expect(container.querySelector('span')).not.toHaveClass('text-red-500')
   })
 
   it('colors positive amounts green when colored', () => {
     const { container } = render(<Money cents={1000} colored />)
-    expect(container.querySelector('span')).toHaveClass('text-green-600')
+    expect(container.querySelector('span')).toHaveClass('text-green-500')
   })
 
   it('colors negative amounts red when colored', () => {
     const { container } = render(<Money cents={-1000} colored />)
-    expect(container.querySelector('span')).toHaveClass('text-red-600')
+    expect(container.querySelector('span')).toHaveClass('text-red-500')
   })
 })

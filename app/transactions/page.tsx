@@ -84,7 +84,7 @@ export default async function TransactionsPage({
     <main className="mx-auto max-w-5xl p-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Registre receitas e despesas do dia a dia.
         </p>
       </header>
@@ -96,19 +96,19 @@ export default async function TransactionsPage({
 
           {/* Result count + totals for the filtered set. */}
           <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-gray-500">
+            <span className="text-gray-400">
               {transactions.length}{' '}
               {transactions.length === 1 ? 'transação' : 'transações'}
               {hasActiveFilters(filters) ? ' (filtrado)' : ''}
             </span>
             <span className="ml-auto flex gap-4">
-              <span className="text-gray-500">
+              <span className="text-gray-400">
                 Receitas: <Money cents={income} colored />
               </span>
-              <span className="text-gray-500">
+              <span className="text-gray-400">
                 Despesas: <Money cents={-expense} colored />
               </span>
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-gray-200">
                 Saldo: <Money cents={balance} colored />
               </span>
             </span>

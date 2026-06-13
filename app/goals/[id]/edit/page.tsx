@@ -52,7 +52,7 @@ export default async function EditGoalPage({
     <main className="mx-auto max-w-md p-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Editar meta</h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Altere os campos e salve, ou cancele para voltar à lista.
         </p>
       </header>

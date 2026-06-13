@@ -50,7 +50,7 @@ export default async function SettingsPage() {
     <main className="mx-auto max-w-5xl space-y-10 p-6">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Edite seu perfil e personalize categorias, subcategorias e marcadores.
         </p>
       </header>
@@ -97,10 +97,10 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-gray-800 bg-gray-900 p-6 shadow-sm">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-        <p className="text-sm text-gray-500">{description}</p>
+        <h2 className="text-lg font-semibold text-gray-100">{title}</h2>
+        <p className="text-sm text-gray-400">{description}</p>
       </div>
       {children}
     </section>

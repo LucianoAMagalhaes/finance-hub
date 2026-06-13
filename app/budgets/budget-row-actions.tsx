@@ -45,7 +45,7 @@ export function BudgetRowActions({
     <div className="flex items-center gap-3">
       <Link
         href={`/budgets/${id}/edit`}
-        className="text-xs font-medium text-gray-500 hover:text-gray-900"
+        className="text-xs font-medium text-gray-400 hover:text-white"
       >
         Editar
       </Link>
@@ -53,11 +53,11 @@ export function BudgetRowActions({
         type="button"
         onClick={handleDelete}
         disabled={isPending}
-        className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+        className="text-xs font-medium text-red-500 hover:text-red-300 disabled:opacity-50"
       >
         {isPending ? 'Excluindo…' : 'Excluir'}
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-red-500">{error}</span>}
     </div>
   )
 }

@@ -22,7 +22,7 @@ export type GoalRow = {
 export function GoalList({ items }: { items: GoalRow[] }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
         Nenhuma meta ainda. Crie a primeira no formulário ao lado.
       </div>
     )
@@ -46,16 +46,16 @@ export function GoalList({ items }: { items: GoalRow[] }) {
         return (
           <li
             key={g.id}
-            className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+            className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="font-medium text-gray-800">{g.name}</span>
+              <span className="font-medium text-gray-100">{g.name}</span>
               {progress.complete ? (
-                <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                <span className="rounded-full bg-green-950 px-2 py-0.5 text-xs font-medium text-green-300">
                   Concluída 🎉
                 </span>
               ) : (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   Prazo: {formatDate(g.deadline)}
                 </span>
               )}
@@ -63,20 +63,20 @@ export function GoalList({ items }: { items: GoalRow[] }) {
 
             {/* Progress bar — green throughout; the goal is about saving, not
                 overspending, so there are no warning/over states. */}
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
               <div
-                className="h-full rounded-full bg-green-500 transition-all"
+                className="h-full rounded-full bg-green-9500 transition-all"
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
 
             <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-gray-600">
+              <span className="text-gray-300">
                 <Money cents={g.currentAmount} /> de{' '}
                 <Money cents={g.targetAmount} /> ({progress.percent}%)
               </span>
               {!progress.complete && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   Falta <Money cents={progress.remaining} />
                 </span>
               )}
@@ -84,9 +84,9 @@ export function GoalList({ items }: { items: GoalRow[] }) {
 
             {/* Suggested monthly contribution to reach the target by the deadline. */}
             {!progress.complete && (
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-400">
                 Aporte mensal sugerido:{' '}
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-gray-200">
                   <Money cents={suggestion} />
                 </span>
               </p>

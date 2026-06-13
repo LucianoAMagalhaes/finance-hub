@@ -66,7 +66,7 @@ const CONFIG: Record<
 const DEFAULT_COLOR = '#6b7280'
 
 const field =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none'
+  'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
 
 export function EntityManager({ kind, items }: { kind: Kind; items: EntityRow[] }) {
   const router = useRouter()
@@ -111,10 +111,10 @@ export function EntityManager({ kind, items }: { kind: Kind; items: EntityRow[] 
       {/* Add form */}
       <form
         onSubmit={handleAdd}
-        className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+        className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-800 bg-gray-800 p-3"
       >
         <div className="w-16">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Ícone</label>
+          <label className="mb-1 block text-xs font-medium text-gray-300">Ícone</label>
           <input
             className={`${field} text-center`}
             value={icon}
@@ -124,7 +124,7 @@ export function EntityManager({ kind, items }: { kind: Kind; items: EntityRow[] 
           />
         </div>
         <div className="min-w-[8rem] flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Nome</label>
+          <label className="mb-1 block text-xs font-medium text-gray-300">Nome</label>
           <input
             className={field}
             value={name}
@@ -133,16 +133,16 @@ export function EntityManager({ kind, items }: { kind: Kind; items: EntityRow[] 
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Cor</label>
+          <label className="mb-1 block text-xs font-medium text-gray-300">Cor</label>
           <input
             type="color"
-            className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-300"
+            className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
             value={color}
             onChange={(e) => setColor(e.target.value)}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
+          <label className="mb-1 block text-xs font-medium text-gray-300">Tipo</label>
           <select
             className={field}
             value={type}
@@ -158,21 +158,21 @@ export function EntityManager({ kind, items }: { kind: Kind; items: EntityRow[] 
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
           Adicionar
         </button>
       </form>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
       )}
 
       {/* List */}
       {items.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma {config.noun} cadastrada.</p>
+        <p className="text-sm text-gray-400">Nenhuma {config.noun} cadastrada.</p>
       ) : (
-        <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+        <ul className="divide-y divide-gray-800 rounded-lg border border-gray-800">
           {items.map((item) => (
             <Row key={item.id} item={item} config={config} />
           ))}
@@ -250,7 +250,7 @@ function Row({
         />
         <input
           type="color"
-          className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-300"
+          className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
           value={color}
           onChange={(e) => setColor(e.target.value)}
         />
@@ -269,7 +269,7 @@ function Row({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
           Salvar
         </button>
@@ -285,11 +285,11 @@ function Row({
             setEditing(false)
           }}
           disabled={isPending}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-md border border-gray-700 px-3 py-2 text-sm font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
         >
           Cancelar
         </button>
-        {error && <span className="w-full text-xs text-red-600">{error}</span>}
+        {error && <span className="w-full text-xs text-red-500">{error}</span>}
       </li>
     )
   }
@@ -304,13 +304,13 @@ function Row({
       >
         {item.icon}
       </span>
-      <span className="flex-1 text-sm font-medium text-gray-800">{item.name}</span>
-      <span className="text-xs text-gray-400">{TRANSACTION_TYPE_LABELS[item.type]}</span>
+      <span className="flex-1 text-sm font-medium text-gray-100">{item.name}</span>
+      <span className="text-xs text-gray-500">{TRANSACTION_TYPE_LABELS[item.type]}</span>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="text-xs font-medium text-gray-500 hover:text-gray-900"
+          className="text-xs font-medium text-gray-400 hover:text-white"
         >
           Editar
         </button>
@@ -318,12 +318,12 @@ function Row({
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+          className="text-xs font-medium text-red-500 hover:text-red-300 disabled:opacity-50"
         >
           {isPending ? 'Excluindo…' : 'Excluir'}
         </button>
       </div>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-red-500">{error}</span>}
     </li>
   )
 }

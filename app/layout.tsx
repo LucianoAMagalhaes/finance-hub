@@ -36,32 +36,32 @@ export default function RootLayout({
       >
         {/* Shared top navigation. `next/link` does client-side navigation
             between routes without a full page reload. */}
-        <nav className="border-b border-gray-200 bg-white">
+        <nav className="border-b border-gray-800 bg-gray-900">
           <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-3">
             <Link href="/" className="font-bold tracking-tight">
               Finra
             </Link>
             <Link
               href="/transactions"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-300 hover:text-white"
             >
               Transações
             </Link>
             <Link
               href="/budgets"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-300 hover:text-white"
             >
               Orçamentos
             </Link>
             <Link
               href="/goals"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-300 hover:text-white"
             >
               Metas
             </Link>
             <Link
               href="/settings"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-300 hover:text-white"
             >
               Configurações
             </Link>

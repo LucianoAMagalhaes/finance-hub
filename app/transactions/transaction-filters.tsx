@@ -61,10 +61,10 @@ export function TransactionFilters({ categories }: { categories: CategoryOption[
   const hasAny = Boolean(type || categoryId || paymentMethod || from || to || q)
 
   const field =
-    'rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none'
+    'rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
 
   return (
-    <div className="mb-4 space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="mb-4 space-y-3 rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
       <div className="flex flex-wrap gap-3">
         <input
           className={`${field} grow`}
@@ -110,7 +110,7 @@ export function TransactionFilters({ categories }: { categories: CategoryOption[
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-gray-300">
           De
           <input
             type="date"
@@ -119,7 +119,7 @@ export function TransactionFilters({ categories }: { categories: CategoryOption[
             onChange={(e) => setParam('from', e.target.value)}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-gray-300">
           Até
           <input
             type="date"
@@ -133,7 +133,7 @@ export function TransactionFilters({ categories }: { categories: CategoryOption[
           <button
             type="button"
             onClick={clearAll}
-            className="ml-auto text-sm text-gray-500 underline hover:text-gray-900"
+            className="ml-auto text-sm text-gray-400 underline hover:text-white"
           >
             Limpar filtros
           </button>

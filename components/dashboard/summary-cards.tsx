@@ -18,12 +18,12 @@ export function SummaryCards({
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <Card label="Receitas do mês">
-        <span className="text-green-600">
+        <span className="text-green-500">
           <Money cents={income} />
         </span>
       </Card>
       <Card label="Despesas do mês">
-        <span className="text-red-600">
+        <span className="text-red-500">
           <Money cents={expense} />
         </span>
       </Card>
@@ -37,8 +37,8 @@ export function SummaryCards({
 
 function Card({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+    <div className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
         {label}
       </p>
       <p className="mt-1 text-2xl font-bold tracking-tight">{children}</p>

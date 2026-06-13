@@ -102,13 +102,13 @@ export function GoalForm({ editing }: { editing?: EditingGoal }) {
   }
 
   const field =
-    'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none'
-  const label = 'mb-1 block text-sm font-medium text-gray-700'
+    'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+  const label = 'mb-1 block text-sm font-medium text-gray-200'
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+      className="space-y-4 rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm"
     >
       <h2 className="text-lg font-semibold">{editing ? 'Editar meta' : 'Nova meta'}</h2>
 
@@ -168,10 +168,10 @@ export function GoalForm({ editing }: { editing?: EditingGoal }) {
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
           Meta salva!
         </p>
       )}
@@ -180,7 +180,7 @@ export function GoalForm({ editing }: { editing?: EditingGoal }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
           {isPending ? 'Salvando…' : editing ? 'Atualizar meta' : 'Salvar meta'}
         </button>
@@ -189,7 +189,7 @@ export function GoalForm({ editing }: { editing?: EditingGoal }) {
             type="button"
             onClick={() => router.push('/goals')}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-md border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 transition hover:bg-gray-800 disabled:opacity-50"
           >
             Cancelar
           </button>

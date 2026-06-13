@@ -19,7 +19,7 @@ export function BudgetPeriodNav({ month, year }: BudgetPeriod) {
   const next = shiftPeriod({ month, year }, 1)
 
   const arrow =
-    'flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 text-gray-600 transition hover:bg-gray-50'
+    'flex h-9 w-9 items-center justify-center rounded-md border border-gray-700 text-gray-300 transition hover:bg-gray-800'
 
   return (
     <div className="flex items-center gap-3">
@@ -27,7 +27,7 @@ export function BudgetPeriodNav({ month, year }: BudgetPeriod) {
         ‹
       </Link>
 
-      <span className="min-w-[140px] text-center text-sm font-medium text-gray-700">
+      <span className="min-w-[140px] text-center text-sm font-medium text-gray-200">
         {MONTH_LABELS[month]} de {year}
       </span>
 
