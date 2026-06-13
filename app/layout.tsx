@@ -53,6 +53,12 @@ export default function RootLayout({
             >
               Orçamentos
             </Link>
+            <Link
+              href="/goals"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Metas
+            </Link>
           </div>
         </nav>
         {children}

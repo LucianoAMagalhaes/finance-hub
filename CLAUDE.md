@@ -34,11 +34,16 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - [x] Slice 2: **editar e excluir** — branch `feat/budget-edit-delete`. Server Actions `updateBudget`/`deleteBudget` escopadas ao dono (`updateMany`/`deleteMany` com `userId` → id de outro usuário casa 0 linhas → "Orçamento não encontrado"). Edição altera **só o limite** (categoria + período são a identidade do orçamento, chave única): rota dinâmica `app/budgets/[id]/edit/page.tsx` (busca com `notFound()` se inexistente/não-dono) reusa `BudgetForm` em modo de edição (prop `editing`, categoria em leitura), validando o limite com `budgetInputSchema`; `BudgetRowActions` (Client) por cartão com Editar + Excluir (`confirm()`). Verificado contra o banco (update aplica, limite negativo rejeitado sem alterar valor, id alheio/inexistente rejeitado, delete aplica) e no app (200, prefill, id inválido 404).
   - [x] Slice 3: **seletor de período + visão geral** — branch `feat/budget-period-overview`. Período (`?month=&year=`) lido da URL na page (`searchParams`), com fallback ao mês atual; helpers puros `parseBudgetPeriod` (valida/normaliza, descarta URL adulterada) e `shiftPeriod` (rollover de ano) em `lib/budget.ts` (+ testes). `BudgetPeriodNav` (Server, `next/link`) navega mês anterior/próximo mantendo a URL compartilhável; criar orçamento usa o mês selecionado. `BudgetOverview` (Server) resume contagem por status (no limite / atenção / estourados / sem orçamento). Verificado no app (rollover dez→jan e jan→dez, fallback de mês inválido, hrefs prev/next, banda de resumo).
 
+### Em andamento
+- [ ] **`feat/goals`** — metas com progresso e aporte mensal sugerido
+  - [x] Slice 1: **criar + listar com progresso** — branch `feat/goals`. Página `/goals` (Server Component) lista metas por prazo (`deadline asc`); `GoalForm` (Client) com nome, valor alvo, valor atual opcional e prazo (validação Zod client+server via `lib/goal-schema.ts`); `createGoal` (Server Action) guarda deadline em UTC midnight e um snapshot do aporte mensal. `GoalList` (Server) com barra de progresso, % e "falta X"; **aporte mensal sugerido recalculado ao vivo** (não lê o snapshot) e estado "Concluída" ao atingir o alvo. Helpers puros `lib/goal.ts` (`goalProgress`, `monthsUntil`, `suggestedMonthlyContribution`) + testes; nav no layout. Verificado contra o banco (criação, atual>alvo e prazo inválido rejeitados, snapshot confere) e no app (200, estados 25%/90%/100%).
+  - [ ] Slice 2: editar e excluir meta + registrar aporte (somar ao valor atual)
+  - [ ] Slice 3 (a definir conforme necessidade)
+
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
-1. `feat/goals` — metas com progresso e aporte mensal sugerido
-2. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
-3. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
-4. `docs/initial-adrs` — ADRs 001–005
+1. `feat/dashboard` — saldo do mês, gráfico de 6 meses, resumos
+2. `feat/settings` — perfil, categorias, subcategorias e marcadores personalizados
+3. `docs/initial-adrs` — ADRs 001–005
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
