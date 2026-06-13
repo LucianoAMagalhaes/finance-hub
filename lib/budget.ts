@@ -130,3 +130,21 @@ export const MONTH_LABELS = [
   'Novembro',
   'Dezembro',
 ] as const
+
+// Short Brazilian month names, indexed 1-12 (index 0 unused) for compact spots
+// like the dashboard chart's X axis where the full names wouldn't fit.
+export const SHORT_MONTH_LABELS = [
+  '',
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
+] as const
