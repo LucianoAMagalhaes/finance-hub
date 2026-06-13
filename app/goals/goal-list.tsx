@@ -8,6 +8,7 @@
 import { Money } from '@/components/money'
 import { formatDate } from '@/lib/format'
 import { goalProgress, suggestedMonthlyContribution } from '@/lib/goal'
+import { GoalCardActions } from './goal-card-actions'
 
 // The shape the page builds for each goal.
 export type GoalRow = {
@@ -83,13 +84,15 @@ export function GoalList({ items }: { items: GoalRow[] }) {
 
             {/* Suggested monthly contribution to reach the target by the deadline. */}
             {!progress.complete && (
-              <p className="mt-2 border-t border-gray-100 pt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500">
                 Aporte mensal sugerido:{' '}
                 <span className="font-medium text-gray-700">
                   <Money cents={suggestion} />
                 </span>
               </p>
             )}
+
+            <GoalCardActions id={g.id} name={g.name} complete={progress.complete} />
           </li>
         )
       })}

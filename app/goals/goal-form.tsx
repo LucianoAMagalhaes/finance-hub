@@ -1,31 +1,46 @@
-// Goal creation form.
+// Goal form — handles both creating and editing.
 //
 // "use client": it uses React state and event handlers, so it runs in the
 // browser. The page that renders it stays a Server Component that reads the DB.
 // Mirrors budget-form.tsx: client-side Zod validation for instant feedback,
-// then the Server Action re-validates with the same schema.
+// then the Server Action re-validates with the same schema. In edit mode the
+// fields start from the existing goal and we call updateGoal instead.
 
 'use client'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { parseBRLToCents } from '@/lib/format'
+import { formatBRL, parseBRLToCents } from '@/lib/format'
 import { goalInputSchema } from '@/lib/goal-schema'
-import { createGoal } from './actions'
+import { createGoal, updateGoal } from './actions'
 
 // Today as YYYY-MM-DD, used as the date input's sensible lower bound.
 function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function GoalForm() {
+// Data passed when the form opens in edit mode (the goal being changed).
+export type EditingGoal = {
+  id: string
+  name: string
+  targetAmount: number // cents
+  currentAmount: number // cents
+  deadline: string // YYYY-MM-DD
+}
+
+export function GoalForm({ editing }: { editing?: EditingGoal }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const [name, setName] = useState('')
-  const [target, setTarget] = useState('')
-  const [current, setCurrent] = useState('')
-  const [deadline, setDeadline] = useState('')
+  // In edit mode each field starts from the existing goal; otherwise blank.
+  const [name, setName] = useState(editing?.name ?? '')
+  const [target, setTarget] = useState(
+    editing ? formatBRL(editing.targetAmount) : '',
+  )
+  const [current, setCurrent] = useState(
+    editing ? formatBRL(editing.currentAmount) : '',
+  )
+  const [deadline, setDeadline] = useState(editing?.deadline ?? '')
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -62,15 +77,24 @@ export function GoalForm() {
     }
 
     startTransition(async () => {
-      const result = await createGoal(payload)
+      // Edit mode updates the existing row and returns to the list; create mode
+      // appends and stays on the page for the next entry.
+      const result = editing
+        ? await updateGoal(editing.id, payload)
+        : await createGoal(payload)
+
       if (result.ok) {
-        setName('')
-        setTarget('')
-        setCurrent('')
-        setDeadline('')
-        setSuccess(true)
-        // Re-fetch the Server Component so the new goal appears immediately.
-        router.refresh()
+        if (editing) {
+          router.push('/goals')
+          router.refresh()
+        } else {
+          setName('')
+          setTarget('')
+          setCurrent('')
+          setDeadline('')
+          setSuccess(true)
+          router.refresh()
+        }
       } else {
         setError(result.error)
       }
@@ -86,7 +110,7 @@ export function GoalForm() {
       onSubmit={handleSubmit}
       className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
     >
-      <h2 className="text-lg font-semibold">Nova meta</h2>
+      <h2 className="text-lg font-semibold">{editing ? 'Editar meta' : 'Nova meta'}</h2>
 
       <div>
         <label className={label} htmlFor="name">
@@ -152,13 +176,25 @@ export function GoalForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
-      >
-        {isPending ? 'Salvando…' : 'Salvar meta'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+        >
+          {isPending ? 'Salvando…' : editing ? 'Atualizar meta' : 'Salvar meta'}
+        </button>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => router.push('/goals')}
+            disabled={isPending}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </form>
   )
 }
