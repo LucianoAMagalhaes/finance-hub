@@ -59,6 +59,12 @@ export default function RootLayout({
             >
               Metas
             </Link>
+            <Link
+              href="/settings"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Configurações
+            </Link>
           </div>
         </nav>
         {children}
