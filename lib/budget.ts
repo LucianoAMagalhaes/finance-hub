@@ -62,6 +62,58 @@ export function monthRange(year: number, month: number): { gte: Date; lt: Date }
   return { gte, lt }
 }
 
+// A calendar period a budget page is showing.
+export type BudgetPeriod = { month: number; year: number }
+
+/**
+ * Reads and validates the period (?month=&year=) from raw searchParams, falling
+ * back to the given "current" date when missing or malformed. Keeping this pure
+ * (no `new Date()` inside) makes it directly unit-testable and lets the page
+ * decide what "now" means.
+ *
+ * @param searchParams - Raw query params from the URL.
+ * @param now - The date to default to (the page passes `new Date()`).
+ */
+export function parseBudgetPeriod(
+  searchParams: Record<string, string | string[] | undefined>,
+  now: Date,
+): BudgetPeriod {
+  // searchParams values can be string | string[]; take the first one.
+  const raw = (key: string): string | undefined => {
+    const v = searchParams[key]
+    return Array.isArray(v) ? v[0] : v
+  }
+
+  const month = Number(raw('month'))
+  const year = Number(raw('year'))
+
+  // Drop anything out of range or non-integer — a tampered URL falls back to the
+  // current month instead of breaking the query.
+  const validMonth = Number.isInteger(month) && month >= 1 && month <= 12
+  const validYear = Number.isInteger(year) && year >= 2000 && year <= 2100
+
+  if (validMonth && validYear) return { month, year }
+
+  return { month: now.getUTCMonth() + 1, year: now.getUTCFullYear() }
+}
+
+/**
+ * Returns the period `delta` months away, rolling the year over as needed.
+ * Used for the previous/next month navigation.
+ *
+ * @param period - The current { month, year }.
+ * @param delta - Months to add (e.g. -1 for previous, +1 for next).
+ */
+export function shiftPeriod(period: BudgetPeriod, delta: number): BudgetPeriod {
+  // Convert to a 0-based absolute month count, shift, then convert back. This
+  // handles December → January (and the reverse) without special cases.
+  const zeroBased = period.year * 12 + (period.month - 1) + delta
+  return {
+    year: Math.floor(zeroBased / 12),
+    month: (zeroBased % 12) + 1,
+  }
+}
+
 // Brazilian month names, indexed 1-12 (index 0 is unused) for display.
 export const MONTH_LABELS = [
   '',

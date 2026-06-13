@@ -8,7 +8,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-06-07
+**Atualizado em:** 2026-06-13
 
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
@@ -29,11 +29,10 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
   - [x] Slice 2: **filtros + busca** — filtros via search params na URL (tipo, categoria, pagamento, período de/até) + busca por descrição (debounce, case-insensitive). `lib/transaction-filters.ts` (`parseTransactionFilters`/`buildTransactionWhere`, puros + testes), `TransactionFilters` (Client), resumo de receitas/despesas/saldo do conjunto filtrado. Verificado no app.
   - [x] Slice 3: **editar e excluir** — branch `feat/transaction-edit-delete`. Server Actions `updateTransaction`/`deleteTransaction` escopadas ao dono (`updateMany`/`deleteMany` com `userId` → id de outro usuário casa 0 linhas); rota dinâmica `app/transactions/[id]/edit/page.tsx` (busca com `notFound()` se inexistente/não-dono) reusando `TransactionForm` em modo de edição (prop `editing`); `TransactionRowActions` (Client) por linha com Editar + Excluir (`confirm()`). Verificado no app (prefill 200, id inválido 404, update/delete contra o banco).
 
-### Em andamento
-- [ ] **`feat/budgets`** — orçamentos com alertas visuais 80% / 100%
+- [x] **`feat/budgets`** — orçamentos com alertas visuais 80% / 100%
   - [x] Slice 1: **criar + listar com progresso** — página `/budgets` (Server Component) do mês atual; gasto por categoria via `groupBy` (1 query), barra de progresso e alertas 80% (warning) / 100% (over); `BudgetForm` (Client) só com potes ainda sem orçamento no mês, `createBudget` (Server Action) tratando duplicado P2002 (`@@unique userId+categoryId+month+year`); `BudgetList` (Server) com resumo do mês + cartões; nav no layout. Helpers puros `lib/budget.ts` (`budgetStatus`, `monthRange`, `MONTH_LABELS`) + `lib/budget-schema.ts` (+ testes). Verificado no app (200, criação, 85%→warning, duplicado rejeitado).
   - [x] Slice 2: **editar e excluir** — branch `feat/budget-edit-delete`. Server Actions `updateBudget`/`deleteBudget` escopadas ao dono (`updateMany`/`deleteMany` com `userId` → id de outro usuário casa 0 linhas → "Orçamento não encontrado"). Edição altera **só o limite** (categoria + período são a identidade do orçamento, chave única): rota dinâmica `app/budgets/[id]/edit/page.tsx` (busca com `notFound()` se inexistente/não-dono) reusa `BudgetForm` em modo de edição (prop `editing`, categoria em leitura), validando o limite com `budgetInputSchema`; `BudgetRowActions` (Client) por cartão com Editar + Excluir (`confirm()`). Verificado contra o banco (update aplica, limite negativo rejeitado sem alterar valor, id alheio/inexistente rejeitado, delete aplica) e no app (200, prefill, id inválido 404).
-  - [ ] Slice 3: seletor de período (navegar meses) + visão geral resumida
+  - [x] Slice 3: **seletor de período + visão geral** — branch `feat/budget-period-overview`. Período (`?month=&year=`) lido da URL na page (`searchParams`), com fallback ao mês atual; helpers puros `parseBudgetPeriod` (valida/normaliza, descarta URL adulterada) e `shiftPeriod` (rollover de ano) em `lib/budget.ts` (+ testes). `BudgetPeriodNav` (Server, `next/link`) navega mês anterior/próximo mantendo a URL compartilhável; criar orçamento usa o mês selecionado. `BudgetOverview` (Server) resume contagem por status (no limite / atenção / estourados / sem orçamento). Verificado no app (rollover dez→jan e jan→dez, fallback de mês inválido, hrefs prev/next, banda de resumo).
 
 ### Próximos passos (Fase 1 — uma branch por funcionalidade)
 1. `feat/goals` — metas com progresso e aporte mensal sugerido
