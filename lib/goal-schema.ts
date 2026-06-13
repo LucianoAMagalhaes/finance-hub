@@ -34,3 +34,10 @@ export const goalInputSchema = z
 
 export type GoalInput = z.input<typeof goalInputSchema>
 export type GoalParsed = z.output<typeof goalInputSchema>
+
+// A single contribution amount (integer cents), validated by both the inline
+// "registrar aporte" form and the addContribution Server Action.
+export const contributionAmountSchema = z
+  .number({ error: 'Valor inválido' })
+  .int('Valor inválido')
+  .positive('O aporte deve ser maior que zero')
