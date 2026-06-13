@@ -30,11 +30,14 @@ Decisão tomada em 2026-06-13. Reinterpreta parte da Fase 1: os itens marcados c
   **modal** (em vez do formulário lateral).
 
 #### Passos (uma branch por mudança)
-1. `feat/remove-subcategories` — remove `Subcategory` (modelo, coluna em
-   transações, seção em Configurações, seed, filtros/form/lista/schema). **← atual**
-2. `feat/transaction-modal` — tabela full-width + modal de cadastro/edição.
+1. ✅ `feat/remove-subcategories` — remove `Subcategory` (modelo, coluna em
+   transações, seção em Configurações, seed, filtros/form/lista/schema).
+2. ✅ `feat/transaction-modal` — tabela full-width + **modal** de cadastro
+   (`components/ui/modal.tsx` + `new-transaction-button.tsx`); `TransactionForm`
+   sem card/título próprios e com callback `onSuccess`; edição segue na rota
+   `/transactions/[id]/edit`.
 3. `feat/category-target-percent` — `Category.targetPercent` + painel **Metas**
-   editando os percentuais (remove a feature `Goal`).
+   editando os percentuais (remove a feature `Goal`). **← próximo**
 4. `feat/budget-visual` — painel **Orçamento** somente leitura, limite derivado de
    percentual × renda (remove modelo `Budget`).
 

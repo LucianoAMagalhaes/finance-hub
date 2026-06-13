@@ -88,7 +88,9 @@ export default async function EditTransactionPage({
         </p>
       </header>
 
-      <TransactionForm categories={categories} tags={tags} editing={editing} />
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm">
+        <TransactionForm categories={categories} tags={tags} editing={editing} />
+      </div>
     </main>
   )
 }

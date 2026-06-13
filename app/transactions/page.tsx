@@ -17,7 +17,7 @@ import {
   buildTransactionWhere,
   hasActiveFilters,
 } from '@/lib/transaction-filters'
-import { TransactionForm } from './transaction-form'
+import { NewTransactionButton } from './new-transaction-button'
 import { TransactionFilters } from './transaction-filters'
 import { TransactionList, type TransactionRow } from './transaction-list'
 
@@ -75,48 +75,44 @@ export default async function TransactionsPage({
   const balance = income - expense
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
-        <p className="text-sm text-gray-400">
-          Registre receitas e despesas do dia a dia.
-        </p>
+    <main className="mx-auto max-w-6xl p-6">
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
+          <p className="text-sm text-gray-400">
+            Registre receitas e despesas do dia a dia.
+          </p>
+        </div>
+        {/* Creating opens a modal, so the table below can use the full width. */}
+        <NewTransactionButton categories={categories} tags={tags} />
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        {/* List + filters on the left, form on the right (stacks on mobile). */}
-        <section className="order-2 lg:order-1">
-          <TransactionFilters categories={categories} />
+      <TransactionFilters categories={categories} />
 
-          {/* Result count + totals for the filtered set. */}
-          <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-gray-400">
-              {transactions.length}{' '}
-              {transactions.length === 1 ? 'transação' : 'transações'}
-              {hasActiveFilters(filters) ? ' (filtrado)' : ''}
-            </span>
-            <span className="ml-auto flex gap-4">
-              <span className="text-gray-400">
-                Receitas: <Money cents={income} colored />
-              </span>
-              <span className="text-gray-400">
-                Despesas: <Money cents={-expense} colored />
-              </span>
-              <span className="font-medium text-gray-200">
-                Saldo: <Money cents={balance} colored />
-              </span>
-            </span>
-          </div>
-
-          <TransactionList
-            items={transactions as TransactionRow[]}
-            filtered={hasActiveFilters(filters)}
-          />
-        </section>
-        <aside className="order-1 lg:order-2">
-          <TransactionForm categories={categories} tags={tags} />
-        </aside>
+      {/* Result count + totals for the filtered set. */}
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
+        <span className="text-gray-400">
+          {transactions.length}{' '}
+          {transactions.length === 1 ? 'transação' : 'transações'}
+          {hasActiveFilters(filters) ? ' (filtrado)' : ''}
+        </span>
+        <span className="ml-auto flex gap-4">
+          <span className="text-gray-400">
+            Receitas: <Money cents={income} colored />
+          </span>
+          <span className="text-gray-400">
+            Despesas: <Money cents={-expense} colored />
+          </span>
+          <span className="font-medium text-gray-200">
+            Saldo: <Money cents={balance} colored />
+          </span>
+        </span>
       </div>
+
+      <TransactionList
+        items={transactions as TransactionRow[]}
+        filtered={hasActiveFilters(filters)}
+      />
     </main>
   )
 }
