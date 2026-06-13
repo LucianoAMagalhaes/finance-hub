@@ -10,6 +10,34 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 **Atualizado em:** 2026-06-13
 
+### Redesenho do modelo (em andamento) — método dos 6 potes com percentuais
+
+Decisão tomada em 2026-06-13. Reinterpreta parte da Fase 1: os itens marcados como
+"Concluído" abaixo continuam válidos como histórico, mas os pontos a seguir os
+**substituem** onde houver conflito.
+
+- **Categorias = os potes/"metas".** Cada categoria de despesa passa a ter um
+  **percentual alvo** da renda (campo inteiro em `Category`). No ideal somam 100%.
+- **Sem subcategorias.** O modelo `Subcategory` e `Transaction.subcategoryId` saem.
+  Transação passa a ter só **categoria (obrigatória) + tag (opcional)**.
+- **Painel Metas** — substitui a feature de metas atual (`Goal` com valor
+  alvo/prazo/aporte é **removido**). Vira a tela onde se **edita o percentual** de
+  cada categoria.
+- **Painel Orçamento** — vira **somente leitura/visual**: para cada categoria
+  mostra o gasto do mês vs o limite **derivado** = (percentual da categoria) ×
+  (receitas do mês). Sem limites manuais → modelo `Budget` **removido**.
+- **Painel Transações** — tabela em **largura total**; cadastrar/editar abre um
+  **modal** (em vez do formulário lateral).
+
+#### Passos (uma branch por mudança)
+1. `feat/remove-subcategories` — remove `Subcategory` (modelo, coluna em
+   transações, seção em Configurações, seed, filtros/form/lista/schema). **← atual**
+2. `feat/transaction-modal` — tabela full-width + modal de cadastro/edição.
+3. `feat/category-target-percent` — `Category.targetPercent` + painel **Metas**
+   editando os percentuais (remove a feature `Goal`).
+4. `feat/budget-visual` — painel **Orçamento** somente leitura, limite derivado de
+   percentual × renda (remove modelo `Budget`).
+
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
 - [x] **Setup do banco** — branch `chore/database-setup`

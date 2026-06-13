@@ -38,13 +38,7 @@ export const transactionInputSchema = z.object({
 
   categoryId: z.string().min(1, 'Selecione uma categoria'),
 
-  // Optional relations. Empty string from a <select> is normalized to null.
-  subcategoryId: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((v) => (v ? v : null)),
-
+  // Optional relation. Empty string from a <select> is normalized to null.
   tagId: z
     .string()
     .optional()

@@ -36,7 +36,6 @@ function toTransactionData(data: TransactionParsed) {
     type: data.type,
     paymentMethod: data.paymentMethod,
     categoryId: data.categoryId,
-    subcategoryId: data.subcategoryId,
     tagId: data.tagId,
     notes: data.notes,
   }

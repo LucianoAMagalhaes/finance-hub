@@ -37,13 +37,8 @@ export default async function TransactionsPage({
   const where = buildTransactionWhere(user.id, filters)
 
   // Fetch everything the page needs in parallel for speed.
-  const [categories, subcategories, tags, transactions] = await Promise.all([
+  const [categories, tags, transactions] = await Promise.all([
     prisma.category.findMany({
-      where: { userId: user.id },
-      select: { id: true, name: true, icon: true, type: true },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.subcategory.findMany({
       where: { userId: user.id },
       select: { id: true, name: true, icon: true, type: true },
       orderBy: { name: 'asc' },
@@ -65,7 +60,6 @@ export default async function TransactionsPage({
         paymentMethod: true,
         notes: true,
         category: { select: { name: true, icon: true, color: true } },
-        subcategory: { select: { name: true, icon: true } },
         tag: { select: { name: true } },
       },
     }),
@@ -120,11 +114,7 @@ export default async function TransactionsPage({
           />
         </section>
         <aside className="order-1 lg:order-2">
-          <TransactionForm
-            categories={categories}
-            subcategories={subcategories}
-            tags={tags}
-          />
+          <TransactionForm categories={categories} tags={tags} />
         </aside>
       </div>
     </main>
