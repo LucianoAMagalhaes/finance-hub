@@ -20,9 +20,9 @@ import {
 } from '@/components/dashboard/dashboard-budget'
 import { BalanceChart } from '@/components/dashboard/balance-chart'
 import {
-  RecentTransactions,
-  type RecentRow,
-} from '@/components/dashboard/recent-transactions'
+  ResumoPotesTable,
+  type PoteSummaryRow,
+} from '@/components/dashboard/resumo-potes-table'
 import { BarList, type Bar } from '@/components/dashboard/bar-list'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
 import { AccountsBalanceCard } from '@/components/dashboard/accounts-balance-card'
@@ -67,14 +67,12 @@ export default async function DashboardPage({
   //  - the expense jars with their target share (limits are derived, not stored);
   //  - this month's expense transactions (used both for spending totals and for
   //    the per-jar drill-down on the dashboard budget section);
-  //  - the latest 5 transactions;
   //  - the accounts and their all-time per-type sums (for the "total em conta"
   //    card, which is a running balance — NOT scoped to the selected month).
   const [
     totalsByType,
     expenseCategories,
     monthExpenseTxns,
-    recent,
     chartTxns,
     accounts,
     accountSums,
@@ -107,19 +105,6 @@ export default async function DashboardPage({
         tag: { select: { name: true, color: true } },
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-    }),
-    prisma.transaction.findMany({
-      where: { userId: user.id },
-      select: {
-        id: true,
-        description: true,
-        amount: true,
-        date: true,
-        type: true,
-        category: { select: { name: true, icon: true, color: true } },
-      },
-      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      take: 5,
     }),
     // Raw rows for the 6-month chart: we fetch the minimal fields and aggregate
     // per month in JS (buildMonthlySeries), since Prisma can't group by month.
@@ -212,8 +197,18 @@ export default async function DashboardPage({
     value,
   })).sort((a, b) => b.value - a.value)
 
-  // The type cast is safe: the select above returns exactly RecentRow's shape.
-  const recentRows = recent as RecentRow[]
+  // Rows for the "Resumo por pote" table (one per expense jar, in jar order).
+  const poteRows: PoteSummaryRow[] = jars.map((j) => ({
+    categoryId: j.categoryId,
+    name: j.name,
+    icon: j.icon,
+    color: j.color,
+    limit: j.limit,
+    spent: j.spent,
+  }))
+
+  // Human-readable period label reused across the cards.
+  const periodLabel = `${MONTH_LABELS[month]} ${year}`
 
   // Current balance per account (initial + income − expense, all-time) + total.
   const { accounts: accountBalances, total: totalInAccounts } =
@@ -232,31 +227,37 @@ export default async function DashboardPage({
     )
 
   return (
-    <main className="max-w-6xl space-y-6 p-6 lg:p-8">
+    <main className="max-w-[1320px] space-y-5 p-6 lg:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-gray-400">
-            Resumo de {MONTH_LABELS[month]} de {year}.
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-cofre-muted">Visão geral das suas finanças</p>
         </div>
         {/* Month/year dropdowns — they push the period into the URL. */}
         <PeriodSelector month={month} year={year} />
       </header>
 
-      {/* Running balance across accounts (all-time, not period-scoped). */}
-      <AccountsBalanceCard total={totalInAccounts} accounts={accountBalances} />
-
-      <SummaryCards income={income} expense={expense} />
-
-      <BalanceChart data={series} />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DashboardBudget jars={jars} income={income} />
-        <RecentTransactions items={recentRows} />
+      {/* Row 1: headline figures. Total em conta (running balance) + month totals. */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        <AccountsBalanceCard total={totalInAccounts} accounts={accountBalances} />
+        <SummaryCards income={income} expense={expense} periodLabel={periodLabel} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Row 2: balance evolution chart + per-jar summary table. */}
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <BalanceChart data={series} />
+        <ResumoPotesTable
+          rows={poteRows}
+          totalSpent={expense}
+          periodLabel={periodLabel}
+        />
+      </div>
+
+      {/* Row 3: budget per jar (3-col cards) with drill-down. */}
+      <DashboardBudget jars={jars} income={income} />
+
+      {/* Row 4: expenses broken down by tag and by payment method. */}
+      <div className="grid gap-4 lg:grid-cols-2">
         <BarList
           title="Despesas por marcador"
           items={tagBars}

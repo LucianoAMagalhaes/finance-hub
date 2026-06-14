@@ -1,20 +1,20 @@
 'use client'
 
-// Dashboard budget section — the per-jar overview with inline drill-down.
+// Dashboard budget section — a 3-column grid of jar cards with inline drill-down.
 //
-// "use client": unlike most of the dashboard, this component is interactive —
-// clicking a jar expands a list of that jar's transactions for the month right
-// below it. State (which jar is open) lives in the browser, so this must be a
-// Client Component. It receives already-fetched data via props from the
-// dashboard Server Component; no data fetching happens here.
+// "use client": clicking a jar card toggles a list of that jar's transactions
+// for the month, shown below the grid. State (which jar is open) lives in the
+// browser, so this must be a Client Component. It receives already-fetched data
+// via props from the dashboard Server Component. Styled to match the reference
+// ("cofre" palette): cards with a progress bar and an 80%/100% alert triangle.
 //
 // Each jar's limit is DERIVED from its target share of the month's income (see
 // lib/budget). Jars with a real limit (target > 0 and income received) show a
-// progress bar with the 80%/100% alerts; 0%/no-income jars render neutrally.
+// progress bar; 0%/no-income jars render neutrally.
 
 import { useState } from 'react'
+import { AlertTriangle, X } from 'lucide-react'
 import { Money } from '@/components/money'
-import { budgetStatus, type BudgetLevel } from '@/lib/budget'
 import { formatDate } from '@/lib/format'
 
 // One transaction shown in a jar's drill-down.
@@ -38,13 +38,6 @@ export type JarRow = {
   transactions: JarTransaction[]
 }
 
-// Tailwind classes per alert level: bar fill and text.
-const LEVEL_STYLES: Record<BudgetLevel, { bar: string; text: string }> = {
-  ok: { bar: 'bg-green-500', text: 'text-gray-400' },
-  warning: { bar: 'bg-amber-500', text: 'text-amber-300' },
-  over: { bar: 'bg-red-500', text: 'text-red-300' },
-}
-
 export function DashboardBudget({
   jars,
   income,
@@ -52,161 +45,169 @@ export function DashboardBudget({
   jars: JarRow[]
   income: number
 }) {
-  // Which jar is currently expanded (its categoryId), or null for none. Only one
-  // open at a time keeps the dashboard compact.
+  // Which jar is currently expanded (its categoryId), or null for none.
   const [openId, setOpenId] = useState<string | null>(null)
-
   const hasIncome = income > 0
-  const totalSpent = jars.reduce((sum, j) => sum + j.spent, 0)
-  const totalLimit = jars.reduce((sum, j) => sum + j.limit, 0)
-  const totals = budgetStatus(totalSpent, totalLimit)
+  const openJar = jars.find((j) => j.categoryId === openId) ?? null
 
   return (
-    <section className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-200">Orçamento do mês</h2>
-        <span className="text-xs text-gray-400">
-          Limites derivados de {hasIncome ? <Money cents={income} /> : 'R$ 0,00'} de
-          receita
+    <section className="rounded-lg border border-cofre-border bg-cofre-card p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-bold">Orçamento do mês por pote</h2>
+        <span className="text-xs text-cofre-faint">
+          Limite = % da renda ({hasIncome ? <Money cents={income} /> : 'R$ 0,00'})
         </span>
       </div>
 
       {jars.length === 0 ? (
-        <p className="text-sm text-gray-400">
+        <p className="mt-3 text-sm text-cofre-faint">
           Nenhum pote de despesa cadastrado. Crie categorias em Configurações.
         </p>
       ) : !hasIncome ? (
-        <p className="rounded-md border border-amber-900/60 bg-amber-950/40 p-3 text-sm text-amber-200">
+        <p className="mt-3 rounded-md border border-cofre-amberdim bg-cofre-amberdim/30 p-3 text-sm text-cofre-amber">
           Sem receita lançada neste mês. Os limites de cada pote são derivados da
           renda, então lance suas receitas para vê-los aqui.
         </p>
       ) : (
-        // Total spent vs derived total across all jars.
-        <div className="mb-3 flex items-center justify-between text-sm">
-          <span className="text-gray-400">Gasto total</span>
-          <span className={LEVEL_STYLES[totals.level].text}>
-            <Money cents={totalSpent} /> de <Money cents={totalLimit} /> (
-            {totals.percent}%)
-          </span>
+        <div className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {jars.map((jar) => (
+            <JarCard
+              key={jar.categoryId}
+              jar={jar}
+              open={openId === jar.categoryId}
+              onToggle={() =>
+                setOpenId((cur) => (cur === jar.categoryId ? null : jar.categoryId))
+              }
+            />
+          ))}
         </div>
       )}
 
-      <ul className="space-y-2">
-        {jars.map((jar) => (
-          <JarItem
-            key={jar.categoryId}
-            jar={jar}
-            hasIncome={hasIncome}
-            open={openId === jar.categoryId}
-            onToggle={() =>
-              setOpenId((cur) => (cur === jar.categoryId ? null : jar.categoryId))
-            }
-          />
-        ))}
-      </ul>
+      {openJar && (
+        <DrillList jar={openJar} onClose={() => setOpenId(null)} />
+      )}
     </section>
   )
 }
 
-function JarItem({
+function JarCard({
   jar,
-  hasIncome,
   open,
   onToggle,
 }: {
   jar: JarRow
-  hasIncome: boolean
   open: boolean
   onToggle: () => void
 }) {
-  const hasLimit = hasIncome && jar.percent > 0
-  const status = budgetStatus(jar.spent, jar.limit)
-  const style = LEVEL_STYLES[status.level]
+  const hasLimit = jar.limit > 0 && jar.percent > 0
+  const ratio = hasLimit ? jar.spent / jar.limit : 0
+  const alert = ratio >= 1 ? 'over' : ratio >= 0.8 ? 'warn' : 'ok'
+  const barColor =
+    alert === 'over' ? '#F0654E' : alert === 'warn' ? '#F5A623' : jar.color
 
   return (
-    <li className="rounded-md border border-gray-800 bg-gray-950/40">
-      {/* The whole header is a button so clicking anywhere toggles the drill-down. */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-3 py-2 text-left transition hover:bg-gray-800/40"
-        aria-expanded={open}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-sm font-medium">
-            <span style={{ color: jar.color }}>
-              {jar.icon} {jar.name}
-            </span>
-            <span className="rounded-full bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300">
-              {jar.percent}%
-            </span>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="rounded-lg border p-3.5 text-left transition"
+      style={{
+        borderColor: open ? jar.color : '#2E363C',
+        background: open ? '#1C2125' : 'transparent',
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2">
+          <span aria-hidden style={{ color: jar.color }}>
+            {jar.icon}
           </span>
-          <span className={`text-xs ${hasLimit ? style.text : 'text-gray-400'}`}>
-            {hasLimit ? (
-              <>
-                <Money cents={jar.spent} /> de <Money cents={jar.limit} /> (
-                {status.percent}%)
-              </>
-            ) : (
-              <>
-                <Money cents={jar.spent} />
-              </>
-            )}
-            {/* A little chevron that rotates when open. */}
-            <span
-              className={`ml-2 inline-block text-gray-500 transition-transform ${
-                open ? 'rotate-90' : ''
-              }`}
-            >
-              ›
-            </span>
-          </span>
-        </div>
+          <span className="text-[13px] font-bold">{jar.name}</span>
+        </span>
+        {hasLimit && alert !== 'ok' && (
+          <AlertTriangle
+            size={14}
+            color={alert === 'over' ? '#F0654E' : '#F5A623'}
+          />
+        )}
+      </div>
 
-        {hasLimit ? (
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
+      {hasLimit ? (
+        <>
+          <div className="mb-1.5 flex items-center justify-between text-xs">
+            <span className="font-bold">
+              <Money cents={jar.spent} />
+            </span>
+            <span className="text-cofre-faint">
+              de <Money cents={jar.limit} /> ({jar.percent}%)
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-cofre-panel">
             <div
-              className={`h-full rounded-full ${style.bar}`}
-              style={{ width: `${Math.min(status.percent, 100)}%` }}
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(ratio * 100, 100)}%`,
+                backgroundColor: barColor,
+              }}
             />
           </div>
-        ) : (
-          <p className="mt-1 text-[11px] text-gray-500">
-            {jar.percent === 0 ? 'Defina a meta em Configurações' : 'Sem receita no mês'}
-          </p>
-        )}
-      </button>
-
-      {/* Drill-down: this jar's transactions for the month. */}
-      {open && (
-        <div className="border-t border-gray-800 px-3 py-2">
-          {jar.transactions.length === 0 ? (
-            <p className="text-xs text-gray-500">Nenhum gasto neste pote no mês.</p>
-          ) : (
-            <ul className="divide-y divide-gray-800/60">
-              {jar.transactions.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center justify-between gap-3 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-gray-100">
-                      {t.description}
-                    </p>
-                    <p className="text-[11px] text-gray-500">
-                      {formatDate(t.date)}
-                      {t.tagName ? ` · ${t.tagName}` : ''}
-                    </p>
-                  </div>
-                  <span className="whitespace-nowrap text-xs text-gray-300">
-                    <Money cents={t.amount} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        </>
+      ) : (
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold">
+            <Money cents={jar.spent} />
+          </span>
+          <span className="text-cofre-faint">
+            {jar.percent === 0 ? 'sem meta' : 'sem receita'}
+          </span>
         </div>
       )}
-    </li>
+    </button>
+  )
+}
+
+// The drill-down list of a jar's transactions for the month, shown below the grid.
+function DrillList({ jar, onClose }: { jar: JarRow; onClose: () => void }) {
+  return (
+    <div className="mt-4 border-t border-cofre-border pt-3.5">
+      <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold">
+        <span aria-hidden style={{ color: jar.color }}>
+          {jar.icon}
+        </span>
+        Transações de “{jar.name}”
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto text-cofre-muted hover:text-cofre-text"
+          aria-label="Fechar"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {jar.transactions.length === 0 ? (
+        <p className="text-xs text-cofre-faint">Nenhum gasto neste pote no mês.</p>
+      ) : (
+        <ul>
+          {jar.transactions.map((t) => (
+            <li
+              key={t.id}
+              className="flex items-center justify-between gap-3 border-b border-cofre-border py-1.5 text-[13px] last:border-0"
+            >
+              <span className="min-w-0">
+                <span className="font-semibold">{t.description}</span>
+                <span className="text-cofre-faint">
+                  {' · '}
+                  {formatDate(t.date)}
+                  {t.tagName ? ` · ${t.tagName}` : ''}
+                </span>
+              </span>
+              <span className="shrink-0 text-cofre-muted">
+                <Money cents={t.amount} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
