@@ -48,12 +48,6 @@ export default function RootLayout({
               Transações
             </Link>
             <Link
-              href="/budgets"
-              className="text-sm text-gray-300 hover:text-white"
-            >
-              Orçamentos
-            </Link>
-            <Link
               href="/metas"
               className="text-sm text-gray-300 hover:text-white"
             >

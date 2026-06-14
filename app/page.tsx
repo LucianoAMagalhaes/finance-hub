@@ -7,14 +7,17 @@
 
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
-import { monthRange, budgetStatus, derivedLimit, MONTH_LABELS } from '@/lib/budget'
+import { monthRange, derivedLimit, MONTH_LABELS } from '@/lib/budget'
 import {
   lastNMonths,
   buildMonthlySeries,
   type SeriesTransaction,
 } from '@/lib/dashboard'
 import { SummaryCards } from '@/components/dashboard/summary-cards'
-import { BudgetSummary } from '@/components/dashboard/budget-summary'
+import {
+  DashboardBudget,
+  type JarRow,
+} from '@/components/dashboard/dashboard-budget'
 import { BalanceChart } from '@/components/dashboard/balance-chart'
 import {
   RecentTransactions,
@@ -43,10 +46,11 @@ export default async function DashboardPage() {
 
   // Fetch everything in parallel (independent queries, one round-trip each):
   //  - totals per type this month;
-  //  - the expense jars with their target share (limits are derived, not stored)
-  //    and the spending per category;
+  //  - the expense jars with their target share (limits are derived, not stored);
+  //  - this month's expense transactions (used both for spending totals and for
+  //    the per-jar drill-down on the dashboard budget section);
   //  - the latest 5 transactions.
-  const [totalsByType, expenseCategories, spentByCategory, recent, chartTxns] =
+  const [totalsByType, expenseCategories, monthExpenseTxns, recent, chartTxns] =
     await Promise.all([
     prisma.transaction.groupBy({
       by: ['type'],
@@ -55,12 +59,26 @@ export default async function DashboardPage() {
     }),
     prisma.category.findMany({
       where: { userId: user.id, type: 'expense' },
-      select: { id: true, targetPercent: true },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        color: true,
+        targetPercent: true,
+      },
+      orderBy: [{ targetPercent: 'desc' }, { name: 'asc' }],
     }),
-    prisma.transaction.groupBy({
-      by: ['categoryId'],
+    prisma.transaction.findMany({
       where: { userId: user.id, type: 'expense', date: { gte, lt } },
-      _sum: { amount: true },
+      select: {
+        id: true,
+        description: true,
+        amount: true,
+        date: true,
+        categoryId: true,
+        tag: { select: { name: true } },
+      },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.transaction.findMany({
       where: { userId: user.id },
@@ -93,23 +111,35 @@ export default async function DashboardPage() {
   const expense =
     totalsByType.find((t) => t.type === 'expense')?._sum.amount ?? 0
 
-  // Spending lookup per category, then count jars by alert level. Each jar's
-  // limit is derived from its target share of this month's income (same logic
-  // as the budgets screen). Only jars with a real limit (target > 0 and income
-  // received) are counted.
+  // Group this month's expense transactions by category, so each jar can show
+  // its total spent and the drill-down list. One pass over the rows.
+  const txnsByCategory = new Map<string, JarRow['transactions']>()
   const spentMap = new Map<string, number>()
-  for (const row of spentByCategory) {
-    spentMap.set(row.categoryId, row._sum.amount ?? 0)
+  for (const t of monthExpenseTxns) {
+    spentMap.set(t.categoryId, (spentMap.get(t.categoryId) ?? 0) + t.amount)
+    const list = txnsByCategory.get(t.categoryId) ?? []
+    list.push({
+      id: t.id,
+      description: t.description,
+      amount: t.amount,
+      date: t.date,
+      tagName: t.tag?.name ?? null,
+    })
+    txnsByCategory.set(t.categoryId, list)
   }
-  const counts = { ok: 0, warning: 0, over: 0 }
-  let activeJars = 0
-  for (const c of expenseCategories) {
-    const limit = derivedLimit(income, c.targetPercent)
-    if (limit > 0) {
-      activeJars += 1
-      counts[budgetStatus(spentMap.get(c.id) ?? 0, limit).level] += 1
-    }
-  }
+
+  // Build one jar row per expense category, with its derived limit and the
+  // transactions that make up its spending this month.
+  const jars: JarRow[] = expenseCategories.map((c) => ({
+    categoryId: c.id,
+    name: c.name,
+    icon: c.icon,
+    color: c.color,
+    percent: c.targetPercent,
+    limit: derivedLimit(income, c.targetPercent),
+    spent: spentMap.get(c.id) ?? 0,
+    transactions: txnsByCategory.get(c.id) ?? [],
+  }))
 
   // The type cast is safe: the select above returns exactly RecentRow's shape.
   const recentRows = recent as RecentRow[]
@@ -128,12 +158,7 @@ export default async function DashboardPage() {
       <BalanceChart data={series} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <BudgetSummary
-          total={activeJars}
-          ok={counts.ok}
-          warning={counts.warning}
-          over={counts.over}
-        />
+        <DashboardBudget jars={jars} income={income} />
         <RecentTransactions items={recentRows} />
       </div>
     </main>
