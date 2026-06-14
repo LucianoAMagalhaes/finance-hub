@@ -6,8 +6,9 @@
    is designed for dark surfaces, so we want it dark regardless of the OS setting
    (a light OS used to leave inputs with light text on light fields — faded). */
 :root {
-  --background: #0a0a0a; /* app backdrop (behind cards) */
-  --foreground: #ededed; /* default text */
+  /* "Cofre" palette (see tailwind.config.ts): deep graphite backdrop. */
+  --background: #15191c; /* app backdrop (behind cards) */
+  --foreground: #edeff1; /* default text */
   /* Tells the browser to render native controls (date pickers, dropdown chrome,
      scrollbars) in dark mode, so their text/icons stay readable. */
   color-scheme: dark;
@@ -16,7 +17,9 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Clean geometric sans (Geist), close to the reference's Inter stack. */
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
 }
 
 /* Form controls default to readable colors on dark surfaces. Components set
@@ -26,8 +29,8 @@ body {
 input:not([type='color']),
 select,
 textarea {
-  background-color: #1f2937; /* gray-800 */
-  color: #f3f4f6; /* gray-100 */
+  background-color: #20262b; /* cofre.card */
+  color: #edeff1; /* cofre.text */
 }
 
 input::placeholder,
