@@ -114,27 +114,23 @@ export async function updateCategory(id: string, input: unknown): Promise<Action
 
 /**
  * Deletes a category owned by the local user. A category is referenced by
- * transactions and budgets with ON DELETE RESTRICT, so deleting one still in use
- * would throw a foreign-key error. We check first and refuse with a clear
- * message instead of letting the constraint blow up.
+ * transactions with ON DELETE RESTRICT, so deleting one still in use would throw
+ * a foreign-key error. We check first and refuse with a clear message instead of
+ * letting the constraint blow up.
  */
 export async function deleteCategory(id: string): Promise<ActionResult> {
   try {
     const user = await getLocalUser()
 
     // Count usages (scoped to the owner) before attempting the delete.
-    const [txCount, budgetCount] = await Promise.all([
-      prisma.transaction.count({ where: { userId: user.id, categoryId: id } }),
-      prisma.budget.count({ where: { userId: user.id, categoryId: id } }),
-    ])
+    const txCount = await prisma.transaction.count({
+      where: { userId: user.id, categoryId: id },
+    })
 
-    if (txCount + budgetCount > 0) {
-      const parts = []
-      if (txCount > 0) parts.push(`${txCount} transação(ões)`)
-      if (budgetCount > 0) parts.push(`${budgetCount} orçamento(s)`)
+    if (txCount > 0) {
       return {
         ok: false,
-        error: `Categoria em uso por ${parts.join(' e ')}. Remova-os antes de excluir.`,
+        error: `Categoria em uso por ${txCount} transação(ões). Remova-as antes de excluir.`,
       }
     }
 

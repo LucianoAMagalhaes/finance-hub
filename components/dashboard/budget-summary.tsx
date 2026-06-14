@@ -1,7 +1,8 @@
-// Dashboard budget summary — a compact "how are this month's budgets doing?"
+// Dashboard budget summary — a compact "how are this month's jars doing?"
 // band. Presentational Server Component: it receives counts already computed by
-// the dashboard page (reusing the same budgetStatus thresholds as the budgets
-// screen) and links through to /budgets.
+// the dashboard page (each jar's limit is derived from its target share of the
+// month's income, same logic as the budgets screen) and links through to
+// /budgets.
 
 import Link from 'next/link'
 
@@ -26,7 +27,9 @@ export function BudgetSummary({
       </div>
 
       {total === 0 ? (
-        <p className="text-sm text-gray-400">Nenhum orçamento neste mês.</p>
+        <p className="text-sm text-gray-400">
+          Nenhum pote com meta e receita neste mês.
+        </p>
       ) : (
         <div className="grid grid-cols-3 gap-2 text-center">
           <Stat value={ok} label="No limite" className="text-green-500" />

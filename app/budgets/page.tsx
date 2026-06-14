@@ -1,17 +1,22 @@
 // Budgets page — route "/budgets".
 //
 // A Server Component: it runs on the server, queries the database with Prisma,
-// and passes plain data to the form (Client) and the list (Server). For each
-// budget it also computes how much was already spent in that category this
-// month, so the list can show progress and the 80% / 100% alerts.
+// and passes plain data to the (presentational) list. In the redesigned 6-jars
+// model this screen is READ-ONLY: there are no manual budget limits anymore.
+// Each expense category (jar) has a target share of monthly income (set on the
+// "Metas" screen); here we show, for the selected month, how much was spent in
+// each jar against its DERIVED limit = (target percent) × (income this month).
 
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
-import { monthRange, parseBudgetPeriod, budgetStatus } from '@/lib/budget'
-import { BudgetForm } from './budget-form'
+import {
+  monthRange,
+  parseBudgetPeriod,
+  derivedLimit,
+  budgetStatus,
+} from '@/lib/budget'
 import { BudgetList, type BudgetRow } from './budget-list'
 import { BudgetPeriodNav } from './budget-period-nav'
-import { BudgetOverview } from './budget-overview'
 
 // Always render fresh data: spending changes as transactions are added.
 export const dynamic = 'force-dynamic'
@@ -29,23 +34,26 @@ export default async function BudgetsPage({
   const { month, year } = parseBudgetPeriod(searchParams, new Date())
   const { gte, lt } = monthRange(year, month)
 
-  // Fetch in parallel:
-  //  - expense categories (the "jars") for the form's dropdown;
-  //  - this month's budgets with their category;
+  // Fetch in parallel (independent queries, one round-trip each):
+  //  - the expense categories (jars) with their target share;
+  //  - this month's total income (the base the limits are derived from);
   //  - total spent per category this month (one grouped query, not N queries).
-  const [categories, budgets, spentByCategory] = await Promise.all([
+  const [categories, incomeAgg, spentByCategory] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id, type: 'expense' },
-      select: { id: true, name: true, icon: true },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.budget.findMany({
-      where: { userId: user.id, month, year },
       select: {
         id: true,
-        amountLimit: true,
-        category: { select: { id: true, name: true, icon: true, color: true } },
+        name: true,
+        icon: true,
+        color: true,
+        targetPercent: true,
       },
+      orderBy: [{ targetPercent: 'desc' }, { name: 'asc' }],
+    }),
+    // Sum of all income transactions in the month → the income base.
+    prisma.transaction.aggregate({
+      where: { userId: user.id, type: 'income', date: { gte, lt } },
+      _sum: { amount: true },
     }),
     // groupBy sums the expense transactions of each category in one round-trip.
     prisma.transaction.groupBy({
@@ -55,69 +63,69 @@ export default async function BudgetsPage({
     }),
   ])
 
+  const income = incomeAgg._sum.amount ?? 0
+
   // Turn the grouped result into a quick lookup: categoryId -> cents spent.
   const spentMap = new Map<string, number>()
   for (const row of spentByCategory) {
     spentMap.set(row.categoryId, row._sum.amount ?? 0)
   }
 
-  // Attach the spent amount to each budget. Sort the most-used budgets first by
-  // sorting on spending ratio (descending), so the ones needing attention float
-  // to the top.
-  const rows: BudgetRow[] = budgets
-    .map((b) => ({
-      id: b.id,
-      amountLimit: b.amountLimit,
-      spent: spentMap.get(b.category.id) ?? 0,
-      category: b.category,
-    }))
-    .sort((a, b) => b.spent / b.amountLimit - a.spent / a.amountLimit)
-
-  // Categories that already have a budget this month shouldn't appear again in
-  // the form (one budget per category per month).
-  const usedCategoryIds = new Set(budgets.map((b) => b.category.id))
-  const availableCategories = categories.filter((c) => !usedCategoryIds.has(c.id))
+  // Build one row per jar: its derived limit and what was spent. Sort the jars
+  // that need attention first (highest spending ratio), keeping the Metas order
+  // (percent desc) as the tie-breaker for jars without spending yet.
+  const rows: BudgetRow[] = categories
+    .map((c) => {
+      const spent = spentMap.get(c.id) ?? 0
+      const limit = derivedLimit(income, c.targetPercent)
+      return {
+        categoryId: c.id,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        percent: c.targetPercent,
+        limit,
+        spent,
+      }
+    })
+    .sort((a, b) => {
+      const ra = a.limit > 0 ? a.spent / a.limit : a.spent > 0 ? Infinity : 0
+      const rb = b.limit > 0 ? b.spent / b.limit : b.spent > 0 ? Infinity : 0
+      return rb - ra || b.percent - a.percent
+    })
 
   // Period totals for the header summary.
-  const totalLimit = rows.reduce((sum, r) => sum + r.amountLimit, 0)
+  const totalLimit = rows.reduce((sum, r) => sum + r.limit, 0)
   const totalSpent = rows.reduce((sum, r) => sum + r.spent, 0)
 
-  // Count budgets by alert level for the overview band. Reusing budgetStatus
-  // keeps the thresholds identical to what each card shows.
+  // Count jars by alert level for the overview band. Only jars with a real
+  // limit (target > 0 and income > 0) carry an alert; 0%/no-income jars are
+  // shown neutrally and don't count here.
   const counts = { ok: 0, warning: 0, over: 0 }
   for (const r of rows) {
-    counts[budgetStatus(r.spent, r.amountLimit).level] += 1
+    if (r.limit > 0) counts[budgetStatus(r.spent, r.limit).level] += 1
   }
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
+    <main className="mx-auto max-w-3xl p-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
-          <p className="text-sm text-gray-400">Limites de gasto por pote.</p>
+          <p className="text-sm text-gray-400">
+            Gasto do mês por pote vs o limite derivado da sua meta de renda.
+          </p>
         </div>
         {/* Move between months — the period lives in the URL. */}
         <BudgetPeriodNav month={month} year={year} />
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="order-2 space-y-4 lg:order-1">
-          <BudgetOverview
-            ok={counts.ok}
-            warning={counts.warning}
-            over={counts.over}
-            unbudgeted={availableCategories.length}
-          />
-          <BudgetList items={rows} totalLimit={totalLimit} totalSpent={totalSpent} />
-        </section>
-        <aside className="order-1 lg:order-2">
-          <BudgetForm
-            categories={availableCategories}
-            month={month}
-            year={year}
-          />
-        </aside>
-      </div>
+      <BudgetList
+        items={rows}
+        income={income}
+        totalLimit={totalLimit}
+        totalSpent={totalSpent}
+        counts={counts}
+      />
     </main>
   )
 }

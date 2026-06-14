@@ -44,6 +44,22 @@ export function budgetStatus(spent: number, limit: number): BudgetStatus {
 }
 
 /**
+ * Derives a category's spending limit for the month from its target share.
+ *
+ * In the redesigned model there are no manually-entered budget limits: each
+ * expense category (jar) has a target percentage of monthly income (set on the
+ * "Metas" screen), and its limit for the month is simply that share of the
+ * income actually received. A 0% target (no goal set yet) yields a 0 limit.
+ *
+ * @param income - Total income received this month, in integer cents (>= 0).
+ * @param percent - The category's target share, a whole number 0-100.
+ * @returns The derived limit in integer cents (rounded to the nearest cent).
+ */
+export function derivedLimit(income: number, percent: number): number {
+  return Math.round((income * percent) / 100)
+}
+
+/**
  * Returns the UTC date range [gte, lt) covering a whole calendar month, suitable
  * for a Prisma `where: { date: { gte, lt } }` filter.
  *
