@@ -25,6 +25,8 @@ import {
 } from '@/components/dashboard/recent-transactions'
 import { TagBars, type TagBar } from '@/components/dashboard/tag-bars'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
+import { AccountsBalanceCard } from '@/components/dashboard/accounts-balance-card'
+import { computeAccountBalances } from '@/lib/account'
 
 // Color/label for expenses that have no marker, shown as one "Sem tag" bar.
 const UNTAGGED_COLOR = '#6b7280' // gray-500
@@ -60,9 +62,18 @@ export default async function DashboardPage({
   //  - the expense jars with their target share (limits are derived, not stored);
   //  - this month's expense transactions (used both for spending totals and for
   //    the per-jar drill-down on the dashboard budget section);
-  //  - the latest 5 transactions.
-  const [totalsByType, expenseCategories, monthExpenseTxns, recent, chartTxns] =
-    await Promise.all([
+  //  - the latest 5 transactions;
+  //  - the accounts and their all-time per-type sums (for the "total em conta"
+  //    card, which is a running balance — NOT scoped to the selected month).
+  const [
+    totalsByType,
+    expenseCategories,
+    monthExpenseTxns,
+    recent,
+    chartTxns,
+    accounts,
+    accountSums,
+  ] = await Promise.all([
     prisma.transaction.groupBy({
       by: ['type'],
       where: { userId: user.id, date: { gte, lt } },
@@ -109,6 +120,18 @@ export default async function DashboardPage({
     prisma.transaction.findMany({
       where: { userId: user.id, date: { gte: chartStart, lt } },
       select: { type: true, amount: true, date: true },
+    }),
+    prisma.bankAccount.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true, initialBalance: true, color: true },
+      orderBy: { name: 'asc' },
+    }),
+    // All-time income/expense sum per account (no date filter): the running
+    // balance ignores the selected period.
+    prisma.transaction.groupBy({
+      by: ['accountId', 'type'],
+      where: { userId: user.id },
+      _sum: { amount: true },
     }),
   ])
 
@@ -172,6 +195,22 @@ export default async function DashboardPage({
   // The type cast is safe: the select above returns exactly RecentRow's shape.
   const recentRows = recent as RecentRow[]
 
+  // Current balance per account (initial + income − expense, all-time) + total.
+  const { accounts: accountBalances, total: totalInAccounts } =
+    computeAccountBalances(
+      accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        initialBalance: a.initialBalance,
+        color: a.color ?? UNTAGGED_COLOR,
+      })),
+      accountSums.map((s) => ({
+        accountId: s.accountId,
+        type: s.type,
+        amount: s._sum.amount ?? 0,
+      })),
+    )
+
   return (
     <main className="max-w-6xl space-y-6 p-6 lg:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -184,6 +223,9 @@ export default async function DashboardPage({
         {/* Month/year dropdowns — they push the period into the URL. */}
         <PeriodSelector month={month} year={year} />
       </header>
+
+      {/* Running balance across accounts (all-time, not period-scoped). */}
+      <AccountsBalanceCard total={totalInAccounts} accounts={accountBalances} />
 
       <SummaryCards income={income} expense={expense} />
 
