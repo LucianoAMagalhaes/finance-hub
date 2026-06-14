@@ -37,13 +37,18 @@ export default async function TransactionsPage({
   const where = buildTransactionWhere(user.id, filters)
 
   // Fetch everything the page needs in parallel for speed.
-  const [categories, tags, transactions] = await Promise.all([
+  const [categories, tags, accounts, transactions] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
       select: { id: true, name: true, icon: true, type: true },
       orderBy: { name: 'asc' },
     }),
     prisma.tag.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.bankAccount.findMany({
       where: { userId: user.id },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
@@ -61,6 +66,7 @@ export default async function TransactionsPage({
         notes: true,
         category: { select: { name: true, icon: true, color: true } },
         tag: { select: { name: true } },
+        account: { select: { name: true } },
       },
     }),
   ])
@@ -84,7 +90,7 @@ export default async function TransactionsPage({
           </p>
         </div>
         {/* Creating opens a modal, so the table below can use the full width. */}
-        <NewTransactionButton categories={categories} tags={tags} />
+        <NewTransactionButton categories={categories} tags={tags} accounts={accounts} />
       </header>
 
       <TransactionFilters categories={categories} />

@@ -4,8 +4,8 @@
 // app needs to work out of the box:
 //   - a single local user (Phase 1 has no real auth, see ADR-004);
 //   - the default Categories (the 6 "jars"/potes for expenses + income sources);
-//   - the default Subcategories (free spending areas);
-//   - a small starter set of Tags (markers/marcadores).
+//   - a small starter set of Tags (markers/marcadores);
+//   - a default bank account (transactions require one).
 //
 // How it runs: `prisma db seed` (configured in package.json) executes this file
 // with `tsx`, which runs TypeScript directly without a separate compile step.
@@ -108,6 +108,22 @@ async function main() {
     })
   }
   console.log(`✓ Tags ready: ${TAGS.length} present`)
+
+  // 4) Default bank account. Transactions require an account, so every user needs
+  //    at least one. We use a deterministic id ('acct_' + userId) — the same the
+  //    add_bank_accounts migration used to back-fill — so seeding stays
+  //    idempotent and never creates a second default.
+  await prisma.bankAccount.upsert({
+    where: { id: `acct_${user.id}` },
+    update: {},
+    create: {
+      id: `acct_${user.id}`,
+      name: 'Conta principal',
+      initialBalance: 0,
+      userId: user.id,
+    },
+  })
+  console.log('✓ Default bank account ready: Conta principal')
 
   console.log('🌱 Seed complete.')
 }

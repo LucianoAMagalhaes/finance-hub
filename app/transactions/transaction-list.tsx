@@ -23,6 +23,7 @@ export type TransactionRow = {
   notes: string | null
   category: { name: string; icon: string; color: string } | null
   tag: { name: string } | null
+  account: { name: string } | null
 }
 
 export function TransactionList({
@@ -51,6 +52,7 @@ export function TransactionList({
             <th className="px-4 py-3">Data</th>
             <th className="px-4 py-3">Descrição</th>
             <th className="px-4 py-3">Categoria</th>
+            <th className="px-4 py-3">Conta</th>
             <th className="px-4 py-3">Pagamento</th>
             <th className="px-4 py-3 text-right">Valor</th>
             <th className="px-4 py-3 text-right">Ações</th>
@@ -90,6 +92,9 @@ export function TransactionList({
                   ) : (
                     <span className="text-gray-500">—</span>
                   )}
+                </td>
+                <td className="px-4 py-3 text-gray-400">
+                  {t.account ? t.account.name : <span className="text-gray-500">—</span>}
                 </td>
                 <td className="px-4 py-3 text-gray-400">
                   {PAYMENT_METHOD_LABELS[t.paymentMethod]}

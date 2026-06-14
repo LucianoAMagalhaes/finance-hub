@@ -60,6 +60,22 @@ export const categorySchema = z.object({
 export type CategoryInput = z.input<typeof categorySchema>
 export type CategoryParsed = z.output<typeof categorySchema>
 
+// --- Bank account ---------------------------------------------------------
+// Where money sits: a name, a starting balance and an optional color.
+
+export const accountSchema = z.object({
+  name: z.string().trim().min(1, 'Informe um nome').max(40, 'Nome muito longo'),
+  // Already converted to integer cents by the form. Can be negative (an account
+  // that opened in overdraft). Money is always stored in cents — see CLAUDE.md.
+  initialBalance: z
+    .number({ error: 'Saldo inicial inválido' })
+    .int('Saldo inicial inválido'),
+  color: hexColor,
+})
+
+export type AccountInput = z.input<typeof accountSchema>
+export type AccountParsed = z.output<typeof accountSchema>
+
 // --- Tag ------------------------------------------------------------------
 // A reusable marker: just a name (unique per user) and an optional color.
 

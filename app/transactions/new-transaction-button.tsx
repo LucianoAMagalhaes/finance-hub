@@ -15,13 +15,16 @@ import type { TransactionType } from '@/lib/constants'
 
 type CategoryOption = { id: string; name: string; icon: string; type: TransactionType }
 type TagOption = { id: string; name: string }
+type AccountOption = { id: string; name: string }
 
 export function NewTransactionButton({
   categories,
   tags,
+  accounts,
 }: {
   categories: CategoryOption[]
   tags: TagOption[]
+  accounts: AccountOption[]
 }) {
   const [open, setOpen] = useState(false)
 
@@ -40,6 +43,7 @@ export function NewTransactionButton({
         <TransactionForm
           categories={categories}
           tags={tags}
+          accounts={accounts}
           onSuccess={() => setOpen(false)}
         />
       </Modal>

@@ -25,6 +25,7 @@ import { createTransaction, updateTransaction } from './actions'
 // Minimal serializable shapes passed down from the Server Component.
 type CategoryOption = { id: string; name: string; icon: string; type: TransactionType }
 type TagOption = { id: string; name: string }
+type AccountOption = { id: string; name: string }
 
 // When present, the form runs in "edit mode": prefilled and saving with
 // updateTransaction instead of createTransaction. All fields are plain
@@ -37,6 +38,7 @@ export type EditingTransaction = {
   type: TransactionType
   paymentMethod: PaymentMethod
   categoryId: string
+  accountId: string
   tagId: string | null
   notes: string | null
 }
@@ -44,6 +46,7 @@ export type EditingTransaction = {
 type Props = {
   categories: CategoryOption[]
   tags: TagOption[]
+  accounts: AccountOption[]
   // Omitted/undefined → create mode; provided → edit mode.
   editing?: EditingTransaction
   // Called after a successful create. The modal uses it to close itself; when
@@ -60,6 +63,7 @@ function today(): string {
 export function TransactionForm({
   categories,
   tags,
+  accounts,
   editing,
   onSuccess,
 }: Props) {
@@ -77,6 +81,10 @@ export function TransactionForm({
   )
   const [date, setDate] = useState(editing?.date ?? today())
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? '')
+  // Pre-select the first account in create mode so the required field is filled.
+  const [accountId, setAccountId] = useState(
+    editing?.accountId ?? accounts[0]?.id ?? '',
+  )
   const [tagId, setTagId] = useState(editing?.tagId ?? '')
   const [paymentMethod, setPaymentMethod] = useState<string>(
     editing?.paymentMethod ?? 'pix',
@@ -124,6 +132,7 @@ export function TransactionForm({
       type,
       paymentMethod,
       categoryId,
+      accountId,
       tagId,
       notes,
     }
@@ -231,23 +240,43 @@ export function TransactionForm({
         </div>
       </div>
 
-      <div>
-        <label className={label} htmlFor="category">
-          Categoria
-        </label>
-        <select
-          id="category"
-          className={field}
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-        >
-          <option value="">Selecione…</option>
-          {categoryOptions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className={label} htmlFor="category">
+            Categoria
+          </label>
+          <select
+            id="category"
+            className={field}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+          >
+            <option value="">Selecione…</option>
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={label} htmlFor="account">
+            Conta
+          </label>
+          <select
+            id="account"
+            className={field}
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
+            <option value="">Selecione…</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
