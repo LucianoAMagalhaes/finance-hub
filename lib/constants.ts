@@ -33,3 +33,14 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   transfer: 'Transferência',
   boleto: 'Boleto',
 }
+
+// A fixed color per payment method, used by the dashboard "expenses by payment
+// method" bars (payment methods have no user-set color, unlike tags).
+export const PAYMENT_METHOD_COLORS: Record<PaymentMethod, string> = {
+  cash: '#22c55e',
+  debit: '#3b82f6',
+  credit: '#ef4444',
+  pix: '#14b8a6',
+  transfer: '#a855f7',
+  boleto: '#f59e0b',
+}
