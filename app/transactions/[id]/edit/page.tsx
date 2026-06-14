@@ -90,12 +90,12 @@ export default async function EditTransactionPage({
     <main className="max-w-md p-6 lg:p-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Editar transação</h1>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-cofre-muted">
           Altere os campos e salve, ou cancele para voltar à lista.
         </p>
       </header>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm">
+      <div className="rounded-lg border border-cofre-border bg-cofre-card p-5 shadow-sm">
         <TransactionForm
           categories={categories}
           tags={tags}

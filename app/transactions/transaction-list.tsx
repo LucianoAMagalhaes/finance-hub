@@ -36,7 +36,7 @@ export function TransactionList({
 }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
+      <div className="rounded-lg border border-dashed border-cofre-border p-8 text-center text-sm text-cofre-muted">
         {filtered
           ? 'Nenhuma transação corresponde aos filtros.'
           : 'Nenhuma transação ainda. Clique em “+ Nova transação” para criar a primeira.'}
@@ -45,9 +45,9 @@ export function TransactionList({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900 shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-cofre-border bg-cofre-card shadow-sm">
       <table className="w-full text-sm">
-        <thead className="bg-gray-800 text-left text-xs uppercase tracking-wide text-gray-400">
+        <thead className="bg-cofre-panel text-left text-xs uppercase tracking-wide text-cofre-muted">
           <tr>
             <th className="px-4 py-3">Data</th>
             <th className="px-4 py-3">Descrição</th>
@@ -58,20 +58,20 @@ export function TransactionList({
             <th className="px-4 py-3 text-right">Ações</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-800">
+        <tbody className="divide-y divide-cofre-border">
           {items.map((t) => {
             // Expenses display as negative so the sign + color read correctly.
             const signed = t.type === 'expense' ? -t.amount : t.amount
             return (
-              <tr key={t.id} className="hover:bg-gray-800">
-                <td className="whitespace-nowrap px-4 py-3 text-gray-400">
+              <tr key={t.id} className="hover:bg-cofre-panel">
+                <td className="whitespace-nowrap px-4 py-3 text-cofre-muted">
                   {formatDate(t.date)}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-100">{t.description}</div>
+                  <div className="font-medium text-cofre-text">{t.description}</div>
                   {t.tag && (
-                    <div className="flex gap-2 text-xs text-gray-400">
-                      <span className="rounded-full bg-gray-800 px-2 py-0.5">
+                    <div className="flex gap-2 text-xs text-cofre-muted">
+                      <span className="rounded-full bg-cofre-panel px-2 py-0.5">
                         #{t.tag.name}
                       </span>
                     </div>
@@ -90,13 +90,13 @@ export function TransactionList({
                       {t.category.icon} {t.category.name}
                     </span>
                   ) : (
-                    <span className="text-gray-500">—</span>
+                    <span className="text-cofre-faint">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-gray-400">
-                  {t.account ? t.account.name : <span className="text-gray-500">—</span>}
+                <td className="px-4 py-3 text-cofre-muted">
+                  {t.account ? t.account.name : <span className="text-cofre-faint">—</span>}
                 </td>
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-cofre-muted">
                   {PAYMENT_METHOD_LABELS[t.paymentMethod]}
                 </td>
                 <td className="px-4 py-3 text-right font-medium">

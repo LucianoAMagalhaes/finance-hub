@@ -174,8 +174,8 @@ export function TransactionForm({
 
   // Shared Tailwind classes for inputs, to keep the markup readable.
   const field =
-    'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
-  const label = 'mb-1 block text-sm font-medium text-gray-200'
+    'w-full rounded-md border border-cofre-border px-3 py-2 text-sm focus:border-cofre-jade focus:outline-none'
+  const label = 'mb-1 block text-sm font-medium text-cofre-text'
 
   return (
     // No card chrome here: the modal (create) and the edit page each provide
@@ -190,8 +190,8 @@ export function TransactionForm({
             onClick={() => handleTypeChange(t)}
             className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition ${
               type === t
-                ? 'border-blue-600 bg-blue-600 text-white'
-                : 'border-gray-700 text-gray-300 hover:bg-gray-800'
+                ? 'border-cofre-jade bg-cofre-jade text-[#0B1410]'
+                : 'border-cofre-border text-cofre-muted hover:bg-cofre-panel'
             }`}
           >
             {TRANSACTION_TYPE_LABELS[t]}
@@ -299,7 +299,7 @@ export function TransactionForm({
         </div>
         <div>
           <label className={label} htmlFor="tag">
-            Marcador <span className="text-gray-500">(opcional)</span>
+            Marcador <span className="text-cofre-faint">(opcional)</span>
           </label>
           <select
             id="tag"
@@ -319,7 +319,7 @@ export function TransactionForm({
 
       <div>
         <label className={label} htmlFor="notes">
-          Observação <span className="text-gray-500">(opcional)</span>
+          Observação <span className="text-cofre-faint">(opcional)</span>
         </label>
         <textarea
           id="notes"
@@ -331,10 +331,10 @@ export function TransactionForm({
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="rounded-md bg-cofre-reddim px-3 py-2 text-sm text-cofre-red">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
+        <p className="rounded-md bg-cofre-jadedim px-3 py-2 text-sm text-cofre-jade">
           Transação salva!
         </p>
       )}
@@ -343,7 +343,7 @@ export function TransactionForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="flex-1 rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90 disabled:opacity-50"
         >
           {isPending
             ? 'Salvando…'
@@ -355,7 +355,7 @@ export function TransactionForm({
           // In edit mode, give the user an explicit way out without saving.
           <Link
             href="/transactions"
-            className="rounded-md border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-gray-800"
+            className="rounded-md border border-cofre-border px-4 py-2 text-sm font-medium text-cofre-muted transition hover:bg-cofre-panel"
           >
             Cancelar
           </Link>

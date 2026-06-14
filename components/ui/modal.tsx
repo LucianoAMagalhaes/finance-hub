@@ -52,18 +52,18 @@ export function Modal({
       role="presentation"
     >
       <div
-        className="relative w-full max-w-lg rounded-lg border border-gray-800 bg-gray-900 shadow-xl"
+        className="relative w-full max-w-lg rounded-lg border border-cofre-border bg-cofre-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-center justify-between border-b border-gray-800 px-5 py-3">
-          <h2 className="text-lg font-semibold text-gray-100">{title}</h2>
+        <div className="flex items-center justify-between border-b border-cofre-border px-5 py-3">
+          <h2 className="text-lg font-semibold text-cofre-text">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="rounded-md px-2 text-xl leading-none text-gray-400 transition hover:text-white"
+            className="rounded-md px-2 text-xl leading-none text-cofre-muted transition hover:text-white"
           >
             ×
           </button>

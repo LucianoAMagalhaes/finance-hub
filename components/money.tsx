@@ -23,8 +23,8 @@ type MoneyProps = {
 export function Money({ cents, colored = false }: MoneyProps) {
   const colorClass = colored
     ? cents < 0
-      ? 'text-red-500'
-      : 'text-green-500'
+      ? 'text-cofre-red'
+      : 'text-cofre-jade'
     : undefined
 
   return <span className={colorClass}>{formatBRL(cents)}</span>
