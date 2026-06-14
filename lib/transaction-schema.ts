@@ -38,6 +38,9 @@ export const transactionInputSchema = z.object({
 
   categoryId: z.string().min(1, 'Selecione uma categoria'),
 
+  // The bank account the money moved through — required.
+  accountId: z.string().min(1, 'Selecione uma conta'),
+
   // Optional relation. Empty string from a <select> is normalized to null.
   tagId: z
     .string()

@@ -17,6 +17,7 @@ import { getLocalUser } from '@/lib/user'
 import {
   profileSchema,
   categorySchema,
+  accountSchema,
   tagSchema,
 } from '@/lib/settings-schema'
 import { categoryPercentsSchema } from '@/lib/category-percent'
@@ -243,5 +244,79 @@ export async function setCategoryPercents(input: unknown): Promise<ActionResult>
   } catch (error) {
     console.error('setCategoryPercents failed:', error)
     return { ok: false, error: 'Não foi possível salvar as metas.' }
+  }
+}
+
+// --- Bank accounts --------------------------------------------------------
+
+/** Creates a bank account for the local user. */
+export async function createAccount(input: unknown): Promise<ActionResult> {
+  const parsed = accountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+    await prisma.bankAccount.create({ data: { userId: user.id, ...parsed.data } })
+    revalidatePath('/settings')
+    return { ok: true }
+  } catch (error) {
+    console.error('createAccount failed:', error)
+    return { ok: false, error: 'Não foi possível criar a conta.' }
+  }
+}
+
+/** Updates a bank account owned by the local user. */
+export async function updateAccount(
+  id: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = accountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+    const result = await prisma.bankAccount.updateMany({
+      where: { id, userId: user.id },
+      data: parsed.data,
+    })
+    if (result.count === 0) return { ok: false, error: 'Conta não encontrada.' }
+
+    revalidatePath('/settings')
+    return { ok: true }
+  } catch (error) {
+    console.error('updateAccount failed:', error)
+    return { ok: false, error: 'Não foi possível atualizar a conta.' }
+  }
+}
+
+/**
+ * Deletes a bank account owned by the local user. Transactions reference the
+ * account with ON DELETE RESTRICT, so deleting one still in use would throw a
+ * foreign-key error. We check first and refuse with a clear message.
+ */
+export async function deleteAccount(id: string): Promise<ActionResult> {
+  try {
+    const user = await getLocalUser()
+
+    const txCount = await prisma.transaction.count({
+      where: { userId: user.id, accountId: id },
+    })
+    if (txCount > 0) {
+      return {
+        ok: false,
+        error: `Conta em uso por ${txCount} transação(ões). Mova-as antes de excluir.`,
+      }
+    }
+
+    const result = await prisma.bankAccount.deleteMany({
+      where: { id, userId: user.id },
+    })
+    if (result.count === 0) return { ok: false, error: 'Conta não encontrada.' }
+
+    revalidatePath('/settings')
+    return { ok: true }
+  } catch (error) {
+    console.error('deleteAccount failed:', error)
+    return { ok: false, error: 'Não foi possível excluir a conta.' }
   }
 }

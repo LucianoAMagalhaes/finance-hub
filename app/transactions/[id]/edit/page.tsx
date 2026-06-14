@@ -28,7 +28,7 @@ export default async function EditTransactionPage({
   const user = await getLocalUser()
 
   // Fetch the transaction together with the dropdown options the form needs.
-  const [transaction, categories, tags] = await Promise.all([
+  const [transaction, categories, tags, accounts] = await Promise.all([
     // Scope by userId as well as id: another user's id simply yields null,
     // which we turn into a 404 below — never a leak or an accidental edit.
     prisma.transaction.findFirst({
@@ -41,6 +41,7 @@ export default async function EditTransactionPage({
         type: true,
         paymentMethod: true,
         categoryId: true,
+        accountId: true,
         tagId: true,
         notes: true,
       },
@@ -51,6 +52,11 @@ export default async function EditTransactionPage({
       orderBy: { name: 'asc' },
     }),
     prisma.tag.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.bankAccount.findMany({
       where: { userId: user.id },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
@@ -75,6 +81,7 @@ export default async function EditTransactionPage({
     type: transaction.type,
     paymentMethod: transaction.paymentMethod,
     categoryId: transaction.categoryId,
+    accountId: transaction.accountId,
     tagId: transaction.tagId,
     notes: transaction.notes,
   }
@@ -89,7 +96,12 @@ export default async function EditTransactionPage({
       </header>
 
       <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-sm">
-        <TransactionForm categories={categories} tags={tags} editing={editing} />
+        <TransactionForm
+          categories={categories}
+          tags={tags}
+          accounts={accounts}
+          editing={editing}
+        />
       </div>
     </main>
   )

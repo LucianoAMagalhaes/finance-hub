@@ -47,9 +47,10 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations: one user owns many categories, tags and transactions.
+  // Relations: one user owns many categories, tags, bank accounts and transactions.
   categories    Category[]
   tags          Tag[]
+  bankAccounts  BankAccount[]
   transactions  Transaction[]
 
   @@map("users")
@@ -120,6 +121,30 @@ model Transaction {
   // At most one reusable marker — optional.
   tagId         String?      @map("tag_id")
   tag           Tag?         @relation(fields: [tagId], references: [id])
+  // The bank account the money moved through — required.
+  accountId     String       @map("account_id")
+  account       BankAccount  @relation(fields: [accountId], references: [id])
 
   @@map("transactions")
+}
+
+// A BankAccount is where money actually sits (checking, savings, wallet…). Its
+// current balance = initialBalance + sum(income) − sum(expense) of its
+// transactions. Every transaction belongs to exactly one account.
+model BankAccount {
+  id             String   @id @default(cuid())
+  name           String
+  // Starting balance in integer cents (before any logged transaction). Can be
+  // negative for an account that opened in overdraft.
+  initialBalance Int      @default(0) @map("initial_balance")
+  // Optional color for the UI; null falls back to a neutral default.
+  color          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
+
+  @@map("bank_accounts")
 }

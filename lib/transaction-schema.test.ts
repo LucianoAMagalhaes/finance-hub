@@ -11,6 +11,7 @@ const valid = {
   type: 'expense' as const,
   paymentMethod: 'pix' as const,
   categoryId: 'cat_1',
+  accountId: 'acct_1',
 }
 
 describe('transactionInputSchema', () => {
@@ -61,5 +62,9 @@ describe('transactionInputSchema', () => {
 
   it('rejects a missing category', () => {
     expect(transactionInputSchema.safeParse({ ...valid, categoryId: '' }).success).toBe(false)
+  })
+
+  it('rejects a missing account', () => {
+    expect(transactionInputSchema.safeParse({ ...valid, accountId: '' }).success).toBe(false)
   })
 })

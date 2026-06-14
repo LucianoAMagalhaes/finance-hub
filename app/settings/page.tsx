@@ -10,6 +10,7 @@ import { getLocalUser } from '@/lib/user'
 import { ProfileForm } from './profile-form'
 import { EntityManager, type EntityRow } from './entity-manager'
 import { TagManager, type TagRow } from './tag-manager'
+import { AccountManager, type AccountRow } from './account-manager'
 import {
   CategoryPercentEditor,
   type PercentRow,
@@ -22,7 +23,7 @@ export default async function SettingsPage() {
   const user = await getLocalUser()
 
   // Fetch the catalogs in parallel (independent queries).
-  const [categories, tags] = await Promise.all([
+  const [categories, tags, accounts] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
       select: {
@@ -38,6 +39,11 @@ export default async function SettingsPage() {
     prisma.tag.findMany({
       where: { userId: user.id },
       select: { id: true, name: true, color: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.bankAccount.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true, initialBalance: true, color: true },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -64,13 +70,20 @@ export default async function SettingsPage() {
     name: t.name,
     color: t.color ?? '#6b7280',
   }))
+  // Account color is nullable too; same neutral fallback.
+  const accountRows: AccountRow[] = accounts.map((a) => ({
+    id: a.id,
+    name: a.name,
+    initialBalance: a.initialBalance,
+    color: a.color ?? '#6b7280',
+  }))
 
   return (
     <main className="max-w-6xl space-y-10 p-6 lg:p-8">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-sm text-gray-400">
-          Edite seu perfil e personalize categorias e marcadores.
+          Edite seu perfil e personalize categorias, contas e marcadores.
         </p>
       </header>
 
@@ -86,6 +99,13 @@ export default async function SettingsPage() {
         description="Os “potes” do método. Despesas usam os 6 potes; receitas usam fontes."
       >
         <EntityManager kind="category" items={categoryRows} />
+      </Section>
+
+      <Section
+        title="Contas bancárias"
+        description="Onde o dinheiro fica. O saldo de cada conta = saldo inicial + receitas − despesas."
+      >
+        <AccountManager items={accountRows} />
       </Section>
 
       <Section
