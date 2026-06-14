@@ -23,6 +23,11 @@ import {
   RecentTransactions,
   type RecentRow,
 } from '@/components/dashboard/recent-transactions'
+import { TagBars, type TagBar } from '@/components/dashboard/tag-bars'
+
+// Color/label for expenses that have no marker, shown as one "Sem tag" bar.
+const UNTAGGED_COLOR = '#6b7280' // gray-500
+const UNTAGGED_LABEL = 'Sem tag'
 
 // How many months the evolution chart looks back (including the current month).
 const CHART_MONTHS = 6
@@ -76,7 +81,7 @@ export default async function DashboardPage() {
         amount: true,
         date: true,
         categoryId: true,
-        tag: { select: { name: true } },
+        tag: { select: { name: true, color: true } },
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
@@ -141,6 +146,23 @@ export default async function DashboardPage() {
     transactions: txnsByCategory.get(c.id) ?? [],
   }))
 
+  // Aggregate this month's expenses by marker (tag) for the tag bars. Expenses
+  // without a tag fall into a single "Sem tag" bucket. We reuse the same
+  // monthExpenseTxns rows (no extra query).
+  const tagTotals = new Map<string, { color: string; total: number }>()
+  for (const t of monthExpenseTxns) {
+    const name = t.tag?.name ?? UNTAGGED_LABEL
+    const color = t.tag?.color ?? UNTAGGED_COLOR
+    const entry = tagTotals.get(name) ?? { color, total: 0 }
+    entry.total += t.amount
+    tagTotals.set(name, entry)
+  }
+  const tagBars: TagBar[] = Array.from(tagTotals, ([name, v]) => ({
+    name,
+    color: v.color,
+    total: v.total,
+  })).sort((a, b) => b.total - a.total)
+
   // The type cast is safe: the select above returns exactly RecentRow's shape.
   const recentRows = recent as RecentRow[]
 
@@ -161,6 +183,8 @@ export default async function DashboardPage() {
         <DashboardBudget jars={jars} income={income} />
         <RecentTransactions items={recentRows} />
       </div>
+
+      <TagBars items={tagBars} />
     </main>
   )
 }
