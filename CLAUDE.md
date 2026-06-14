@@ -8,9 +8,9 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-06-13
+**Atualizado em:** 2026-06-14
 
-### Redesenho do modelo (em andamento) — método dos 6 potes com percentuais
+### Redesenho do modelo (concluído) — método dos 6 potes com percentuais
 
 Decisão tomada em 2026-06-13. Reinterpreta parte da Fase 1: os itens marcados como
 "Concluído" abaixo continuam válidos como histórico, mas os pontos a seguir os
@@ -49,6 +49,37 @@ Decisão tomada em 2026-06-13. Reinterpreta parte da Fase 1: os itens marcados c
    atualizados. Painel agora full-width sem formulário lateral.
 
 **Redesenho do modelo concluído** (passos 1–4). 🎉
+
+### Reorganização de navegação/UX (concluída) — 2026-06-14
+
+Conjunto de melhorias após o redesenho. **Uma branch por item**; todas mergeadas
+em `main`. Estes pontos **substituem** o histórico anterior onde houver conflito
+(em especial: não há mais telas `/budgets` nem `/metas`).
+
+- ✅ **`feat/budget-on-dashboard`** (PR #23) — o painel de orçamento dedicado
+  (`/budgets`) **sai**; a visão de orçamento passa a viver no **dashboard**. Cada
+  pote mostra gasto do mês vs limite derivado e, ao **clicar no pote, expande
+  abaixo (drill-down) as transações daquele pote no mês**. Novo Client Component
+  `components/dashboard/dashboard-budget.tsx`; a page busca as transações de
+  despesa do mês uma vez e agrupa por categoria (serve total + drill-down).
+  Removidos `app/budgets/*` e `components/dashboard/budget-summary.tsx`.
+- ✅ **`feat/metas-in-settings`** (PR #24) — a tela `/metas` **sai**; editar o
+  percentual-alvo de cada pote vira a seção **"Metas dos potes"** em
+  **Configurações** (slider + total ao vivo de 100%). `CategoryPercentEditor`
+  movido para `app/settings/`; `setCategoryPercents` agora é uma action de
+  Configurações (revalida `/settings`). Removido `app/metas/*`.
+- ✅ **`feat/sidebar-nav`** (PR #25) — menu principal vira **sidebar lateral fixa**
+  à esquerda (`components/sidebar.tsx`, Client Component, destaca a rota ativa via
+  `usePathname`). Itens: **Dashboard · Transações · Configurações**. O shell do app
+  (`app/layout.tsx`) é um flex: sidebar + área de conteúdo.
+- ✅ **`feat/dashboard-tag-bars`** (PR #26) — nova seção **"Despesas por marcador"**
+  no dashboard: barras horizontais das despesas do mês por tag, ordenadas por
+  valor, na cor de cada marcador, com bucket **"Sem tag"**
+  (`components/dashboard/tag-bars.tsx`). Agrega as transações já buscadas (sem
+  query nova).
+- ✅ **`fix/content-spacing`** (PR #27) — conteúdo das páginas **alinhado à esquerda**
+  junto da sidebar (removido `mx-auto`), largura padronizada em `max-w-6xl` e
+  padding `p-6 lg:p-8`.
 
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
@@ -170,11 +201,13 @@ services:
 - Exemplo: gasolina → Categoria **Conforto** + Subcategoria **Transporte** + Marcador **combustível**.
 - Tudo personalizável em Configurações.
 
-**Dashboard (Fase 1)**
+**Dashboard (Fase 1)** — _ver "Reorganização de navegação/UX" acima para o estado atual_
 - Saldo do mês (receitas − despesas)
 - Total de receitas e despesas no período
 - Gráfico de evolução do saldo (últimos 6 meses)
-- Resumo dos orçamentos: quantos estão no limite, quantos passaram
+- **Orçamento do mês por pote** (limite derivado de `% × renda`) com
+  **drill-down** das transações de cada pote — substitui o resumo de orçamentos
+- **Despesas por marcador** (barras por tag)
 - Últimas 5 transações
 
 **Metas financeiras**
@@ -211,14 +244,20 @@ goals
   deadline, monthly_contribution, created_at
 ```
 
-#### Telas (Fase 1)
+#### Telas (estado atual)
 
-1. **Login / Cadastro**
-2. **Dashboard** — resumo do mês
-3. **Transações** — lista com filtros + formulário de criação/edição
-4. **Orçamentos** — lista de orçamentos com progresso + criação
-5. **Metas** — lista de metas com progresso + criação
-6. **Configurações** — perfil, categorias personalizadas
+Navegação por **sidebar lateral** (`Dashboard · Transações · Configurações`).
+Não há mais telas separadas de Orçamentos nem de Metas (ver "Reorganização de
+navegação/UX" acima).
+
+1. **Dashboard** (`/`) — resumo do mês, gráfico de 6 meses, **orçamento por pote
+   com drill-down**, **despesas por marcador** e últimas 5 transações
+2. **Transações** (`/transactions`) — tabela full-width com filtros/busca; criar
+   via modal, editar em `/transactions/[id]/edit`
+3. **Configurações** (`/settings`) — perfil, categorias, **"Metas dos potes"**
+   (percentual-alvo por pote) e marcadores
+
+> Sem login/cadastro: app local single-user (ver ADR-004).
 
 ---
 
