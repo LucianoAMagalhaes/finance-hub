@@ -16,6 +16,7 @@ export const PAYMENT_METHODS = [
   'pix',
   'transfer',
   'boleto',
+  'direct_debit',
 ] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
@@ -27,9 +28,22 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Dinheiro',
-  debit: 'Débito',
-  credit: 'Crédito',
+  debit: 'Cartão de Débito',
+  credit: 'Cartão de Crédito',
   pix: 'Pix',
   transfer: 'Transferência',
   boleto: 'Boleto',
+  direct_debit: 'Débito Automático',
+}
+
+// A fixed color per payment method, used by the dashboard "expenses by payment
+// method" bars (payment methods have no user-set color, unlike tags).
+export const PAYMENT_METHOD_COLORS: Record<PaymentMethod, string> = {
+  cash: '#22c55e',
+  debit: '#3b82f6',
+  credit: '#ef4444',
+  pix: '#14b8a6',
+  transfer: '#a855f7',
+  boleto: '#f59e0b',
+  direct_debit: '#eab308',
 }

@@ -37,6 +37,7 @@ enum PaymentMethod {
   pix
   transfer
   boleto
+  direct_debit
 }
 
 // ----- Models ------------------------------------------------------------

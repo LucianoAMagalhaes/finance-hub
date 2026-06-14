@@ -23,10 +23,15 @@ import {
   RecentTransactions,
   type RecentRow,
 } from '@/components/dashboard/recent-transactions'
-import { TagBars, type TagBar } from '@/components/dashboard/tag-bars'
+import { BarList, type Bar } from '@/components/dashboard/bar-list'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
 import { AccountsBalanceCard } from '@/components/dashboard/accounts-balance-card'
 import { computeAccountBalances } from '@/lib/account'
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_COLORS,
+  type PaymentMethod,
+} from '@/lib/constants'
 
 // Color/label for expenses that have no marker, shown as one "Sem tag" bar.
 const UNTAGGED_COLOR = '#6b7280' // gray-500
@@ -98,6 +103,7 @@ export default async function DashboardPage({
         amount: true,
         date: true,
         categoryId: true,
+        paymentMethod: true,
         tag: { select: { name: true, color: true } },
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
@@ -175,22 +181,36 @@ export default async function DashboardPage({
     transactions: txnsByCategory.get(c.id) ?? [],
   }))
 
-  // Aggregate this month's expenses by marker (tag) for the tag bars. Expenses
-  // without a tag fall into a single "Sem tag" bucket. We reuse the same
-  // monthExpenseTxns rows (no extra query).
+  // Aggregate this month's expenses two ways from the same rows (no extra
+  // queries): by marker (tag) and by payment method. Both feed the bar lists.
   const tagTotals = new Map<string, { color: string; total: number }>()
+  const paymentTotals = new Map<PaymentMethod, number>()
   for (const t of monthExpenseTxns) {
+    // By tag (untagged expenses share a single "Sem tag" bucket).
     const name = t.tag?.name ?? UNTAGGED_LABEL
     const color = t.tag?.color ?? UNTAGGED_COLOR
     const entry = tagTotals.get(name) ?? { color, total: 0 }
     entry.total += t.amount
     tagTotals.set(name, entry)
+
+    // By payment method.
+    const pm = t.paymentMethod
+    paymentTotals.set(pm, (paymentTotals.get(pm) ?? 0) + t.amount)
   }
-  const tagBars: TagBar[] = Array.from(tagTotals, ([name, v]) => ({
-    name,
+
+  const tagBars: Bar[] = Array.from(tagTotals, ([name, v]) => ({
+    key: name,
+    label: name,
     color: v.color,
-    total: v.total,
-  })).sort((a, b) => b.total - a.total)
+    value: v.total,
+  })).sort((a, b) => b.value - a.value)
+
+  const paymentBars: Bar[] = Array.from(paymentTotals, ([pm, value]) => ({
+    key: pm,
+    label: PAYMENT_METHOD_LABELS[pm],
+    color: PAYMENT_METHOD_COLORS[pm],
+    value,
+  })).sort((a, b) => b.value - a.value)
 
   // The type cast is safe: the select above returns exactly RecentRow's shape.
   const recentRows = recent as RecentRow[]
@@ -236,7 +256,18 @@ export default async function DashboardPage({
         <RecentTransactions items={recentRows} />
       </div>
 
-      <TagBars items={tagBars} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <BarList
+          title="Despesas por marcador"
+          items={tagBars}
+          emptyText="Nenhuma despesa neste mês."
+        />
+        <BarList
+          title="Despesas por forma de pagamento"
+          items={paymentBars}
+          emptyText="Nenhuma despesa neste mês."
+        />
+      </div>
     </main>
   )
 }
