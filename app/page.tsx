@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
-import { monthRange, budgetStatus, MONTH_LABELS } from '@/lib/budget'
+import { monthRange, budgetStatus, derivedLimit, MONTH_LABELS } from '@/lib/budget'
 import {
   lastNMonths,
   buildMonthlySeries,
@@ -43,18 +43,19 @@ export default async function DashboardPage() {
 
   // Fetch everything in parallel (independent queries, one round-trip each):
   //  - totals per type this month;
-  //  - this month's budgets and the spending per category;
+  //  - the expense jars with their target share (limits are derived, not stored)
+  //    and the spending per category;
   //  - the latest 5 transactions.
-  const [totalsByType, budgets, spentByCategory, recent, chartTxns] =
+  const [totalsByType, expenseCategories, spentByCategory, recent, chartTxns] =
     await Promise.all([
     prisma.transaction.groupBy({
       by: ['type'],
       where: { userId: user.id, date: { gte, lt } },
       _sum: { amount: true },
     }),
-    prisma.budget.findMany({
-      where: { userId: user.id, month, year },
-      select: { categoryId: true, amountLimit: true },
+    prisma.category.findMany({
+      where: { userId: user.id, type: 'expense' },
+      select: { id: true, targetPercent: true },
     }),
     prisma.transaction.groupBy({
       by: ['categoryId'],
@@ -92,15 +93,22 @@ export default async function DashboardPage() {
   const expense =
     totalsByType.find((t) => t.type === 'expense')?._sum.amount ?? 0
 
-  // Spending lookup per category, then count budgets by alert level (same
-  // thresholds as the budgets screen, via budgetStatus).
+  // Spending lookup per category, then count jars by alert level. Each jar's
+  // limit is derived from its target share of this month's income (same logic
+  // as the budgets screen). Only jars with a real limit (target > 0 and income
+  // received) are counted.
   const spentMap = new Map<string, number>()
   for (const row of spentByCategory) {
     spentMap.set(row.categoryId, row._sum.amount ?? 0)
   }
   const counts = { ok: 0, warning: 0, over: 0 }
-  for (const b of budgets) {
-    counts[budgetStatus(spentMap.get(b.categoryId) ?? 0, b.amountLimit).level] += 1
+  let activeJars = 0
+  for (const c of expenseCategories) {
+    const limit = derivedLimit(income, c.targetPercent)
+    if (limit > 0) {
+      activeJars += 1
+      counts[budgetStatus(spentMap.get(c.id) ?? 0, limit).level] += 1
+    }
   }
 
   // The type cast is safe: the select above returns exactly RecentRow's shape.
@@ -121,7 +129,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <BudgetSummary
-          total={budgets.length}
+          total={activeJars}
           ok={counts.ok}
           warning={counts.warning}
           over={counts.over}

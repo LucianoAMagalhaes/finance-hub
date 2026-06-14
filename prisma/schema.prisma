@@ -47,11 +47,10 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations: one user owns many categories, tags, transactions and budgets.
+  // Relations: one user owns many categories, tags and transactions.
   categories    Category[]
   tags          Tag[]
   transactions  Transaction[]
-  budgets       Budget[]
 
   @@map("users")
 }
@@ -75,9 +74,8 @@ model Category {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // A category groups many transactions and can have budgets.
+  // A category groups many transactions.
   transactions Transaction[]
-  budgets      Budget[]
 
   @@map("categories")
 }
@@ -124,23 +122,4 @@ model Transaction {
   tag           Tag?         @relation(fields: [tagId], references: [id])
 
   @@map("transactions")
-}
-
-model Budget {
-  id          String   @id @default(cuid())
-  // Spending limit for the category in this period, in integer cents.
-  amountLimit Int      @map("amount_limit")
-  // Period the budget applies to (month is 1-12).
-  month       Int
-  year        Int
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  userId     String   @map("user_id")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId String   @map("category_id")
-  category   Category @relation(fields: [categoryId], references: [id])
-
-  // One budget per category per month/year.
-  @@unique([userId, categoryId, month, year])
-  @@map("budgets")
 }

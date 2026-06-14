@@ -40,8 +40,15 @@ Decisão tomada em 2026-06-13. Reinterpreta parte da Fase 1: os itens marcados c
    **/metas** (editor de percentuais por pote de despesa, total ao vivo, ação
    `setCategoryPercents`); removida a feature `Goal` (modelo, `/goals`, libs);
    seed com os 6 potes somando 100%.
-4. `feat/budget-visual` — painel **Orçamento** somente leitura, limite derivado de
-   percentual × renda (remove modelo `Budget`). **← próximo**
+4. ✅ `feat/budget-visual` — painel **Orçamento** somente leitura: para cada pote
+   mostra gasto do mês vs limite **derivado** = `targetPercent × receitas do mês`
+   (`derivedLimit` em `lib/budget.ts` + testes). Receita 0 → aviso "sem receita no
+   mês"; pote 0% → neutro com "Defina a meta em Metas" (sem alerta). Removidos o
+   modelo `Budget` (migration `remove_budget_model`), o form/edição/actions de
+   orçamento e `lib/budget-schema.ts`; dashboard e guard de exclusão de categoria
+   atualizados. Painel agora full-width sem formulário lateral.
+
+**Redesenho do modelo concluído** (passos 1–4). 🎉
 
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.

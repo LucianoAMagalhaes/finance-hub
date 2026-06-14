@@ -5,10 +5,33 @@
 import { describe, it, expect } from 'vitest'
 import {
   budgetStatus,
+  derivedLimit,
   monthRange,
   parseBudgetPeriod,
   shiftPeriod,
 } from '@/lib/budget'
+
+describe('derivedLimit', () => {
+  it('takes the target share of the income', () => {
+    // 20% of R$ 5.000,00 (500000 cents) = R$ 1.000,00.
+    expect(derivedLimit(500000, 20)).toBe(100000)
+  })
+
+  it('returns 0 when the target is 0% (no goal set)', () => {
+    expect(derivedLimit(500000, 0)).toBe(0)
+  })
+
+  it('returns 0 when there is no income', () => {
+    expect(derivedLimit(0, 20)).toBe(0)
+  })
+
+  it('rounds to the nearest cent', () => {
+    // 33% of 10001 = 3300.33 → 3300.
+    expect(derivedLimit(10001, 33)).toBe(3300)
+    // 33% of 10002 = 3300.66 → 3301.
+    expect(derivedLimit(10002, 33)).toBe(3301)
+  })
+})
 
 describe('budgetStatus', () => {
   it('reports "ok" below 80% of the limit', () => {
