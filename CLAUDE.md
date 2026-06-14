@@ -81,6 +81,38 @@ em `main`. Estes pontos **substituem** o histórico anterior onde houver conflit
   junto da sidebar (removido `mx-auto`), largura padronizada em `max-w-6xl` e
   padding `p-6 lg:p-8`.
 
+### Contas bancárias e dashboard por período (concluída) — 2026-06-14
+
+Rodada seguinte de melhorias. **Uma branch por item**; todas mergeadas em `main`.
+
+- ✅ **`feat/bank-accounts`** (PR #29) — novo modelo **`BankAccount`** (nome,
+  `initialBalance` em centavos, `color?`); **toda transação tem conta
+  (obrigatória)**, FK `RESTRICT`. Migration `add_bank_accounts` faz
+  **expand→backfill→contract**: cria a tabela, adiciona `account_id` nullable,
+  gera uma **"Conta principal"** por usuário (id determinístico `acct_<user_id>`)
+  e aponta as transações existentes, e só então aplica `NOT NULL` + FK. Form de
+  transação (criar/editar) e lista ganham **Conta**; `accountId` no
+  `transaction-schema`/actions. Configurações ganha seção **"Contas bancárias"**
+  (`AccountManager` + actions `createAccount`/`updateAccount`/`deleteAccount` com
+  guard de uso) e `accountSchema`. Seed cria a conta padrão idempotente.
+- ✅ **`feat/dashboard-period-filter`** (PR #30) — dashboard deixa de ser fixo no
+  mês atual: lê o período da URL (`?month=&year=`) com **dropdowns de mês/ano**
+  (`components/dashboard/period-selector.tsx`), fallback ao mês atual via
+  `parseBudgetPeriod`. A janela de 6 meses do gráfico termina no mês selecionado.
+- ✅ **`feat/total-in-account-card`** (PR #31) — card **"Total em conta"** no
+  dashboard: saldo corrente = `saldo inicial + receitas − despesas` por conta,
+  somado (helper puro `lib/account.ts` `computeAccountBalances` + testes;
+  `components/dashboard/accounts-balance-card.tsx`). É **histórico completo**, não
+  filtrado pelo período selecionado.
+- ✅ **`feat/payment-method-bars`** (PR #32) — nova seção **"Despesas por forma de
+  pagamento"** no dashboard (barras por método, ordenadas por valor). Componente
+  genérico **`components/dashboard/bar-list.tsx`** (`BarList`) **substitui o
+  `tag-bars.tsx`** e é reaproveitado pelas barras por marcador e por pagamento.
+  Mesma PR: rótulos **Débito → Cartão de Débito**, **Crédito → Cartão de Crédito**
+  (valores no banco seguem `debit`/`credit`) e novo método **Débito Automático**
+  (`direct_debit`, migration `add_direct_debit_payment`) em `PAYMENT_METHODS` +
+  labels + cores.
+
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
 - [x] **Setup do banco** — branch `chore/database-setup`
@@ -182,8 +214,8 @@ services:
 
 **Transações**
 - Criar, editar e excluir transação
-- Campos obrigatórios: descrição, valor, data, tipo (receita/despesa), categoria, tipo de pagamento
-- Tipos de pagamento: dinheiro, débito, crédito, Pix, transferência, boleto
+- Campos obrigatórios: descrição, valor, data, tipo (receita/despesa), categoria, **conta**, tipo de pagamento
+- Tipos de pagamento: Dinheiro, Cartão de Débito, Cartão de Crédito, Pix, Transferência, Boleto, Débito Automático
 - Filtros: por tipo, categoria, tipo de pagamento, período
 - Busca por descrição
 
@@ -201,13 +233,15 @@ services:
 - Exemplo: gasolina → Categoria **Conforto** + Subcategoria **Transporte** + Marcador **combustível**.
 - Tudo personalizável em Configurações.
 
-**Dashboard (Fase 1)** — _ver "Reorganização de navegação/UX" acima para o estado atual_
-- Saldo do mês (receitas − despesas)
-- Total de receitas e despesas no período
-- Gráfico de evolução do saldo (últimos 6 meses)
+**Dashboard (Fase 1)** — _ver as seções de melhorias acima para o estado atual_
+- **Filtro de período** (dropdowns de mês/ano na URL; padrão = mês atual)
+- **Card "Total em conta"** (saldo corrente somando as contas; histórico, não
+  filtrado pelo período)
+- Total de receitas e despesas do mês + saldo
+- Gráfico de evolução do saldo (últimos 6 meses, terminando no mês selecionado)
 - **Orçamento do mês por pote** (limite derivado de `% × renda`) com
   **drill-down** das transações de cada pote — substitui o resumo de orçamentos
-- **Despesas por marcador** (barras por tag)
+- **Despesas por marcador** e **Despesas por forma de pagamento** (barras)
 - Últimas 5 transações
 
 **Metas financeiras**
@@ -215,33 +249,32 @@ services:
 - Barra de progresso por meta
 - Aporte mensal sugerido calculado automaticamente
 
-#### Modelo de dados (Fase 1)
+#### Modelo de dados (estado atual)
+
+> Fonte autoritativa: `prisma/schema.prisma`. Em relação ao plano original da
+> Fase 1, os modelos **`subcategories`, `budgets` e `goals` foram removidos** (ver
+> seções de redesenho acima) e foi adicionado **`bank_accounts`**.
 
 ```
 users
   id, email, name, created_at
 
 categories
-  id, user_id, name, icon, color, type (income|expense)
-
-subcategories
-  id, user_id, name, icon, color, type (income|expense)
+  id, user_id, name, icon, color, type (income|expense),
+  target_percent   -- share da renda por pote (0-100); só faz sentido p/ despesa
 
 tags
   id, user_id, name, color?   -- unique (user_id, name)
 
+bank_accounts
+  id, user_id, name, initial_balance (centavos), color?, created_at
+  -- saldo corrente = initial_balance + receitas − despesas da conta
+
 transactions
-  id, user_id, category_id, subcategory_id?, tag_id?,
+  id, user_id, category_id, account_id, tag_id?,
   description, amount, date,
   type (income|expense), payment_method
-  (cash|debit|credit|pix|transfer|boleto), notes, created_at
-
-budgets
-  id, user_id, category_id, amount_limit, month, year, created_at
-
-goals
-  id, user_id, name, target_amount, current_amount,
-  deadline, monthly_contribution, created_at
+  (cash|debit|credit|pix|transfer|boleto|direct_debit), notes, created_at
 ```
 
 #### Telas (estado atual)
@@ -250,12 +283,14 @@ Navegação por **sidebar lateral** (`Dashboard · Transações · Configuraçõ
 Não há mais telas separadas de Orçamentos nem de Metas (ver "Reorganização de
 navegação/UX" acima).
 
-1. **Dashboard** (`/`) — resumo do mês, gráfico de 6 meses, **orçamento por pote
-   com drill-down**, **despesas por marcador** e últimas 5 transações
-2. **Transações** (`/transactions`) — tabela full-width com filtros/busca; criar
-   via modal, editar em `/transactions/[id]/edit`
+1. **Dashboard** (`/`) — filtro de mês/ano, card **"Total em conta"**, resumo do
+   mês, gráfico de 6 meses, **orçamento por pote com drill-down**, **despesas por
+   marcador** e **por forma de pagamento** (barras), e últimas 5 transações
+2. **Transações** (`/transactions`) — tabela full-width (com coluna **Conta**) e
+   filtros/busca; criar via modal, editar em `/transactions/[id]/edit`. Toda
+   transação tem **conta (obrigatória)**
 3. **Configurações** (`/settings`) — perfil, categorias, **"Metas dos potes"**
-   (percentual-alvo por pote) e marcadores
+   (percentual-alvo por pote), **"Contas bancárias"** e marcadores
 
 > Sem login/cadastro: app local single-user (ver ADR-004).
 
