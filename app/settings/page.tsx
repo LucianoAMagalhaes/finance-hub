@@ -10,6 +10,10 @@ import { getLocalUser } from '@/lib/user'
 import { ProfileForm } from './profile-form'
 import { EntityManager, type EntityRow } from './entity-manager'
 import { TagManager, type TagRow } from './tag-manager'
+import {
+  CategoryPercentEditor,
+  type PercentRow,
+} from './category-percent-editor'
 
 // Always render fresh data: the catalogs change as the user edits them here.
 export const dynamic = 'force-dynamic'
@@ -21,7 +25,14 @@ export default async function SettingsPage() {
   const [categories, tags] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
-      select: { id: true, name: true, icon: true, color: true, type: true },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        color: true,
+        type: true,
+        targetPercent: true,
+      },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     }),
     prisma.tag.findMany({
@@ -31,8 +42,22 @@ export default async function SettingsPage() {
     }),
   ])
 
-  // The Prisma select already matches EntityRow's shape.
+  // The Prisma select already matches EntityRow's shape (targetPercent is an
+  // extra field the row list simply ignores).
   const categoryRows = categories as EntityRow[]
+
+  // Only expense categories carry a target share; the "Metas" editor shows them
+  // ordered by share (highest first), matching how the jars are weighted.
+  const percentRows: PercentRow[] = categories
+    .filter((c) => c.type === 'expense')
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: c.icon,
+      color: c.color,
+      targetPercent: c.targetPercent,
+    }))
+    .sort((a, b) => b.targetPercent - a.targetPercent || a.name.localeCompare(b.name))
   // Tag color is nullable in the DB; fall back to a neutral default for the UI.
   const tagRows: TagRow[] = tags.map((t) => ({
     id: t.id,
@@ -61,6 +86,13 @@ export default async function SettingsPage() {
         description="Os “potes” do método. Despesas usam os 6 potes; receitas usam fontes."
       >
         <EntityManager kind="category" items={categoryRows} />
+      </Section>
+
+      <Section
+        title="Metas dos potes"
+        description="Quanto da sua renda mensal vai para cada pote de despesa. O ideal é somar 100%."
+      >
+        <CategoryPercentEditor items={percentRows} />
       </Section>
 
       <Section

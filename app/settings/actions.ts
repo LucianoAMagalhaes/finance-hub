@@ -19,6 +19,7 @@ import {
   categorySchema,
   tagSchema,
 } from '@/lib/settings-schema'
+import { categoryPercentsSchema } from '@/lib/category-percent'
 
 // Shared result shape used by all the actions (same as the other features).
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -207,5 +208,40 @@ export async function deleteTag(id: string): Promise<ActionResult> {
   } catch (error) {
     console.error('deleteTag failed:', error)
     return { ok: false, error: 'Não foi possível excluir o marcador.' }
+  }
+}
+
+// --- Category target percentages (the "Metas" plan) -----------------------
+
+/**
+ * Saves the target percentage of each expense category (jar) in one go. The
+ * editor sends the full list of { id, percent } rows; we persist them in a
+ * single transaction, each update scoped to the local user (a forged id matches
+ * zero rows — same ownership pattern as every other action here).
+ *
+ * @param input - Raw array of { id, percent } from the editor (re-validated).
+ */
+export async function setCategoryPercents(input: unknown): Promise<ActionResult> {
+  const parsed = categoryPercentsSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+
+    // One transaction so all percentages move together (no half-saved plan).
+    await prisma.$transaction(
+      parsed.data.map((row) =>
+        prisma.category.updateMany({
+          where: { id: row.id, userId: user.id },
+          data: { targetPercent: row.percent },
+        }),
+      ),
+    )
+
+    revalidatePath('/settings')
+    return { ok: true }
+  } catch (error) {
+    console.error('setCategoryPercents failed:', error)
+    return { ok: false, error: 'Não foi possível salvar as metas.' }
   }
 }
