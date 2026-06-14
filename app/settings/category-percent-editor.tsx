@@ -2,7 +2,10 @@
 //
 // "use client": interactive. It keeps all percentages in local state so the
 // running total updates live (green at 100%, amber otherwise), then saves them
-// in one Server Action call. After saving it refreshes the (force-dynamic) page.
+// in one Server Action call. After saving it refreshes the (force-dynamic)
+// Settings page. This is the "Metas" plan: the 6-jars method splits monthly
+// income across the expense categories, and this is where the user sets each
+// jar's share.
 
 'use client'
 
@@ -66,14 +69,14 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
   if (items.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
-        Nenhuma categoria de despesa. Crie potes em Configurações primeiro.
+        Nenhuma categoria de despesa. Crie potes de despesa acima primeiro.
       </p>
     )
   }
 
   return (
     <div className="space-y-4">
-      <ul className="divide-y divide-gray-800 rounded-lg border border-gray-800 bg-gray-900">
+      <ul className="divide-y divide-gray-800 rounded-lg border border-gray-800">
         {items.map((c) => {
           const value = percents[c.id] ?? 0
           return (
@@ -114,7 +117,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
       </ul>
 
       {/* Live total — green when it reaches exactly 100%, amber otherwise. */}
-      <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 px-4 py-3 text-sm">
+      <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3 text-sm">
         <span className="text-gray-300">Total alocado</span>
         <span className={`font-semibold ${balanced ? 'text-green-400' : 'text-amber-400'}`}>
           {total}%{balanced ? '' : total > 100 ? ' (acima de 100%)' : ' (abaixo de 100%)'}
