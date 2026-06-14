@@ -33,7 +33,7 @@ export function NewTransactionButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+        className="rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90"
       >
         + Nova transação
       </button>

@@ -45,7 +45,7 @@ export function TransactionRowActions({
     <div className="flex items-center justify-end gap-3">
       <Link
         href={`/transactions/${id}/edit`}
-        className="text-xs font-medium text-gray-400 hover:text-white"
+        className="text-xs font-medium text-cofre-muted hover:text-white"
       >
         Editar
       </Link>
@@ -53,11 +53,11 @@ export function TransactionRowActions({
         type="button"
         onClick={handleDelete}
         disabled={isPending}
-        className="text-xs font-medium text-red-500 hover:text-red-300 disabled:opacity-50"
+        className="text-xs font-medium text-cofre-red hover:text-cofre-red disabled:opacity-50"
       >
         {isPending ? 'Excluindo…' : 'Excluir'}
       </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="text-xs text-cofre-red">{error}</span>}
     </div>
   )
 }
