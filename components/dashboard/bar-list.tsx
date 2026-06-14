@@ -1,9 +1,9 @@
 // Generic horizontal-bar list — a presentational Server Component.
 //
 // Shared by the dashboard's "expenses by tag" and "expenses by payment method"
-// sections, which render identically: a titled card with one colored horizontal
-// bar per item, each bar's width relative to the largest value. Callers pass the
-// already-aggregated, already-sorted items.
+// sections. Mirrors the reference layout: a label on the left, a horizontal bar
+// (width relative to the largest value) and the amount on the right. Styled in
+// the "cofre" palette. Callers pass the already-aggregated, already-sorted items.
 
 import { Money } from '@/components/money'
 
@@ -28,36 +28,32 @@ export function BarList({
   const max = Math.max(1, ...items.map((b) => b.value))
 
   return (
-    <section className="rounded-lg border border-gray-800 bg-gray-900 p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-gray-200">{title}</h2>
+    <section className="rounded-lg border border-cofre-border bg-cofre-card p-5">
+      <h2 className="mb-3 text-sm font-bold">{title}</h2>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">{emptyText}</p>
+        <p className="text-sm text-cofre-faint">{emptyText}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {items.map((b) => {
             const width = Math.max(2, Math.round((b.value / max) * 100))
             return (
-              <li key={b.key}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="inline-flex items-center gap-2 text-gray-200">
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: b.color }}
-                      aria-hidden
-                    />
-                    {b.label}
-                  </span>
-                  <span className="text-gray-400">
-                    <Money cents={b.value} />
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
+              <li key={b.key} className="flex items-center gap-3">
+                <span
+                  className="w-28 shrink-0 truncate text-xs text-cofre-text"
+                  title={b.label}
+                >
+                  {b.label}
+                </span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-cofre-panel">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${width}%`, backgroundColor: b.color }}
                   />
                 </div>
+                <span className="w-24 shrink-0 text-right text-xs font-medium text-cofre-muted">
+                  <Money cents={b.value} />
+                </span>
               </li>
             )
           })}
