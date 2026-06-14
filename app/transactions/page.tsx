@@ -75,7 +75,7 @@ export default async function TransactionsPage({
   const balance = income - expense
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className="max-w-6xl p-6 lg:p-8">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Transações</h1>
