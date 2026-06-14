@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
-import { monthRange, derivedLimit, MONTH_LABELS } from '@/lib/budget'
+import { monthRange, parseBudgetPeriod, derivedLimit, MONTH_LABELS } from '@/lib/budget'
 import {
   lastNMonths,
   buildMonthlySeries,
@@ -24,6 +24,7 @@ import {
   type RecentRow,
 } from '@/components/dashboard/recent-transactions'
 import { TagBars, type TagBar } from '@/components/dashboard/tag-bars'
+import { PeriodSelector } from '@/components/dashboard/period-selector'
 
 // Color/label for expenses that have no marker, shown as one "Sem tag" bar.
 const UNTAGGED_COLOR = '#6b7280' // gray-500
@@ -35,12 +36,17 @@ const CHART_MONTHS = 6
 // Always render fresh data: the dashboard reflects the latest transactions.
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>
+}) {
   const user = await getLocalUser()
 
-  const now = new Date()
-  const month = now.getUTCMonth() + 1
-  const year = now.getUTCFullYear()
+  // The period (?month=&year=) comes from the URL so it's shareable and the
+  // selector can change it; missing/invalid values fall back to the current
+  // month. parseBudgetPeriod is the same helper the budgets screen used.
+  const { month, year } = parseBudgetPeriod(searchParams, new Date())
   const { gte, lt } = monthRange(year, month)
 
   // The 6-month window for the evolution chart: the months run oldest → newest,
@@ -168,11 +174,15 @@ export default async function DashboardPage() {
 
   return (
     <main className="max-w-6xl space-y-6 p-6 lg:p-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-gray-400">
-          Resumo de {MONTH_LABELS[month]} de {year}.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-gray-400">
+            Resumo de {MONTH_LABELS[month]} de {year}.
+          </p>
+        </div>
+        {/* Month/year dropdowns — they push the period into the URL. */}
+        <PeriodSelector month={month} year={year} />
       </header>
 
       <SummaryCards income={income} expense={expense} />
