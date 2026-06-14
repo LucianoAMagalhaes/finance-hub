@@ -4,8 +4,8 @@
 // Component by default, so it renders on the server before reaching the browser.
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import Link from "next/link";
 import "./globals.css";
+import { Sidebar } from "@/components/sidebar";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -34,28 +34,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Shared top navigation. `next/link` does client-side navigation
-            between routes without a full page reload. */}
-        <nav className="border-b border-gray-800 bg-gray-900">
-          <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-3">
-            <Link href="/" className="font-bold tracking-tight">
-              Finra
-            </Link>
-            <Link
-              href="/transactions"
-              className="text-sm text-gray-300 hover:text-white"
-            >
-              Transações
-            </Link>
-            <Link
-              href="/settings"
-              className="text-sm text-gray-300 hover:text-white"
-            >
-              Configurações
-            </Link>
-          </div>
-        </nav>
-        {children}
+        {/* App shell: a fixed sidebar on the left, the page content on the
+            right. The sidebar is a Client Component (it highlights the active
+            route); the content area scrolls independently. */}
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
       </body>
     </html>
   );
