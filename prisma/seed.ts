@@ -83,27 +83,27 @@ async function main() {
   console.log(`✓ Local user ready: ${user.name} <${user.email}> (${user.id})`)
 
   // 2) Categories. There is no unique constraint on (userId, name), so we
-  //    check-then-create to stay idempotent without altering the schema. When a
-  //    category already exists we still refresh its targetPercent, so re-seeding
-  //    restores the default plan (and back-fills rows created before the column).
+  //    check-then-create to stay idempotent without altering the schema.
+  //
+  //    IMPORTANT: when a category already exists we leave it completely
+  //    untouched. `targetPercent` is USER-OWNED — it's edited in Configurações
+  //    ("Metas dos potes") and must sum to the user's own plan. An earlier
+  //    version re-applied the default targetPercent here, which meant re-running
+  //    the seed (e.g. to add a new default category) silently overwrote the
+  //    user's customized percentages back to the defaults. So the seed only ever
+  //    CREATES missing categories; it never edits existing ones.
   let categoriesCreated = 0
   for (const category of CATEGORIES) {
     const existing = await prisma.category.findFirst({
       where: { userId: user.id, name: category.name, type: category.type },
     })
-    if (existing) {
-      await prisma.category.update({
-        where: { id: existing.id },
-        data: { targetPercent: category.targetPercent },
-      })
-      continue
-    }
+    if (existing) continue
     await prisma.category.create({ data: { ...category, userId: user.id } })
     categoriesCreated++
   }
   console.log(
     `✓ Categories: ${categoriesCreated} created, ` +
-      `${CATEGORIES.length - categoriesCreated} updated`,
+      `${CATEGORIES.length - categoriesCreated} left untouched`,
   )
 
   // 3) Tags. Tag has a unique (userId, name) constraint, so a real `upsert`
