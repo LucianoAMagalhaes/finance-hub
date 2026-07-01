@@ -113,6 +113,28 @@ Rodada seguinte de melhorias. **Uma branch por item**; todas mergeadas em `main`
   (`direct_debit`, migration `add_direct_debit_payment`) em `PAYMENT_METHODS` +
   labels + cores.
 
+### Categoria de saldo transportado (concluída) — 2026-07-01
+
+- ✅ **`feat/carry-over-category`** (PR #38) — categoria dedicada **"Saldo
+  transportado"** (versão receita + versão despesa, `targetPercent` 0, ícone 🔄)
+  seedada em `prisma/seed.ts`, para **levar a sobra de um mês ao próximo como um
+  par de transações manual**: uma **despesa** "Saldo transportado" no mês que
+  fecha (zera) + uma **receita** igual no mês que abre (entra como renda → os
+  potes crescem na proporção, então gastar a sobra não estoura). As duas se
+  **anulam no "Total em conta"** (que é cumulativo), evitando a duplicação de
+  quando a sobra era relançada como receita solta. Fica **separada dos 6 potes**
+  reais e, com 0% de meta, nunca compete por fatia de orçamento. Criação é
+  **manual** pelo usuário (o app só oferece a categoria). Escopo **mínimo**: a
+  despesa do mês que fecha, por ser transação real, ainda aparece nas análises de
+  gasto daquele mês — esconder essas transações das análises reais foi deixado de
+  fora de propósito. **Descartada** a alternativa de *calcular* o saldo anterior e
+  somá-lo à base do orçamento (era o PR #37, fechado).
+  - Mesma PR, **fix**: o seed deixou de reaplicar o `targetPercent` padrão às
+    categorias já existentes a cada execução — `targetPercent` é do usuário
+    (editado em Configurações → "Metas dos potes"), e re-seedar resetava o plano
+    dele. O seed agora **só cria** categorias faltantes e nunca edita as
+    existentes.
+
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
 - [x] **Setup do banco** — branch `chore/database-setup`
@@ -230,6 +252,7 @@ services:
 - **Categoria** (obrigatória): o "pote". Despesa usa os 6 potes — Custos Fixos, Conforto, Prazeres, Metas, Liberdade Financeira, Conhecimento. Receita usa fontes — Salário, Freela, Rendimentos, Outras Receitas. Tem ícone e cor.
 - **Subcategoria** (opcional): área de gasto/receita escolhida **livremente**, sem pai fixo — Alimentação, Moradia, Transporte, Saúde, Lazer, Educação, Utilidades, Outros. A mesma subcategoria pode aparecer em potes diferentes.
 - **Marcador / Tag** (opcional, **1 por transação**): etiqueta reutilizável criada uma vez e reaproveitada em receitas e despesas — ex: combustível, assinatura, viagem, presente.
+- **Saldo transportado** (categoria especial, receita + despesa, 0% de meta): usada para levar a sobra de um mês ao próximo via um par manual (despesa que fecha + receita que abre), sem duplicar no "Total em conta". Separada dos 6 potes. Ver a seção "Categoria de saldo transportado" acima.
 - Exemplo: gasolina → Categoria **Conforto** + Subcategoria **Transporte** + Marcador **combustível**.
 - Tudo personalizável em Configurações.
 
