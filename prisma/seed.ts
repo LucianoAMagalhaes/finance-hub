@@ -51,6 +51,15 @@ const CATEGORIES: Array<{
   { name: 'Freela', icon: '💼', color: '#14b8a6', type: 'income', targetPercent: 0 },
   { name: 'Rendimentos', icon: '🪙', color: '#0ea5e9', type: 'income', targetPercent: 0 },
   { name: 'Outras Receitas', icon: '➕', color: '#6b7280', type: 'income', targetPercent: 0 },
+  // Carry-over ("saldo transportado") — a dedicated category, kept separate from
+  // the six real jars, used to move a month's leftover into the next month as a
+  // manual pair: an EXPENSE that zeroes the closing month + an INCOME that opens
+  // the next month. The two cancel out in "Total em conta" (no double-counting),
+  // while the income side feeds the next month's budget so the leftover can be
+  // spent without blowing the jars. It exists for both types and takes 0% so it
+  // never competes for budget share with the real jars.
+  { name: 'Saldo transportado', icon: '🔄', color: '#64748b', type: 'expense', targetPercent: 0 },
+  { name: 'Saldo transportado', icon: '🔄', color: '#64748b', type: 'income', targetPercent: 0 },
 ]
 
 // --- Tags (markers/marcadores) -------------------------------------------
