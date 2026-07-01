@@ -4,16 +4,18 @@
 // summed totals (integer cents) from the dashboard page and renders three cards
 // styled in the "cofre" palette, with lucide arrows and the period label.
 
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
 import { Money } from '@/components/money'
 
 export function SummaryCards({
   income,
   expense,
+  previousBalance,
   periodLabel,
 }: {
   income: number // cents
   expense: number // cents
+  previousBalance: number // cents — leftover carried in from previous months
   periodLabel: string
 }) {
   const balance = income - expense
@@ -38,6 +40,22 @@ export function SummaryCards({
           <Money cents={expense} />
         </p>
         <p className="mt-1.5 text-xs text-cofre-faint">{periodLabel}</p>
+      </div>
+
+      {/* Carry-in from previous months: last month's leftover, computed (never
+          entered by hand). Shown next to "Saldo do mês" as extra money to use. */}
+      <div className="rounded-lg border border-cofre-border bg-cofre-card p-5">
+        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cofre-muted">
+          <Wallet size={14} /> Saldo anterior
+        </div>
+        <p
+          className={`text-2xl font-extrabold tracking-tight ${
+            previousBalance >= 0 ? 'text-cofre-jade' : 'text-cofre-red'
+          }`}
+        >
+          <Money cents={previousBalance} />
+        </p>
+        <p className="mt-1.5 text-xs text-cofre-faint">Sobra dos meses anteriores</p>
       </div>
 
       <div className="rounded-lg border border-cofre-border bg-cofre-card p-5">

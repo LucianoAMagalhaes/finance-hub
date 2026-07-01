@@ -26,7 +26,7 @@ import {
 import { BarList, type Bar } from '@/components/dashboard/bar-list'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
 import { AccountsBalanceCard } from '@/components/dashboard/accounts-balance-card'
-import { computeAccountBalances } from '@/lib/account'
+import { computeAccountBalances, carryInBalance } from '@/lib/account'
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_METHOD_COLORS,
@@ -71,6 +71,7 @@ export default async function DashboardPage({
   //    card, which is a running balance — NOT scoped to the selected month).
   const [
     totalsByType,
+    beforeMonthTotals,
     expenseCategories,
     monthExpenseTxns,
     chartTxns,
@@ -80,6 +81,14 @@ export default async function DashboardPage({
     prisma.transaction.groupBy({
       by: ['type'],
       where: { userId: user.id, date: { gte, lt } },
+      _sum: { amount: true },
+    }),
+    // Totals per type for everything dated BEFORE this month — feeds the
+    // "saldo anterior" (carry-in) card, so last month's leftover shows up as
+    // money available now, computed (never entered by hand → no double count).
+    prisma.transaction.groupBy({
+      by: ['type'],
+      where: { userId: user.id, date: { lt: gte } },
       _sum: { amount: true },
     }),
     prisma.category.findMany({
@@ -135,6 +144,22 @@ export default async function DashboardPage({
     totalsByType.find((t) => t.type === 'income')?._sum.amount ?? 0
   const expense =
     totalsByType.find((t) => t.type === 'expense')?._sum.amount ?? 0
+
+  // "Saldo anterior" — the balance carried into this month: every account's
+  // initial balance plus all income minus all expenses dated before the month.
+  const incomeBefore =
+    beforeMonthTotals.find((t) => t.type === 'income')?._sum.amount ?? 0
+  const expenseBefore =
+    beforeMonthTotals.find((t) => t.type === 'expense')?._sum.amount ?? 0
+  const initialBalanceTotal = accounts.reduce(
+    (sum, a) => sum + a.initialBalance,
+    0,
+  )
+  const previousBalance = carryInBalance(
+    initialBalanceTotal,
+    incomeBefore,
+    expenseBefore,
+  )
 
   // Group this month's expense transactions by category, so each jar can show
   // its total spent and the drill-down list. One pass over the rows.
@@ -238,9 +263,14 @@ export default async function DashboardPage({
       </header>
 
       {/* Row 1: headline figures. Total em conta (running balance) + month totals. */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <AccountsBalanceCard total={totalInAccounts} accounts={accountBalances} />
-        <SummaryCards income={income} expense={expense} periodLabel={periodLabel} />
+        <SummaryCards
+          income={income}
+          expense={expense}
+          previousBalance={previousBalance}
+          periodLabel={periodLabel}
+        />
       </div>
 
       {/* Row 2: balance evolution chart + per-jar summary table. */}

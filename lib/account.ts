@@ -61,3 +61,26 @@ export function computeAccountBalances(
   const total = rows.reduce((sum, r) => sum + r.balance, 0)
   return { accounts: rows, total }
 }
+
+/**
+ * Computes the "carry-in" balance for a month: the money already available at
+ * the start of the selected period, i.e. what carried over from the previous
+ * months. It's the same running-total formula as an account balance, but using
+ * only the transactions dated BEFORE the month.
+ *
+ * This lets the dashboard show last month's leftover as extra money to spend,
+ * WITHOUT anyone entering it by hand (which would double-count it against the
+ * already-cumulative "total em conta").
+ *
+ * @param initialBalanceTotal - Sum of every account's initial balance (cents).
+ * @param incomeBefore - Sum of income transactions dated before the month (cents).
+ * @param expenseBefore - Sum of expense transactions dated before the month (cents).
+ * @returns The balance carried into the month (cents; may be negative).
+ */
+export function carryInBalance(
+  initialBalanceTotal: number,
+  incomeBefore: number,
+  expenseBefore: number,
+): number {
+  return initialBalanceTotal + incomeBefore - expenseBefore
+}

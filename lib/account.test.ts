@@ -3,7 +3,11 @@
 // Pure-function tests: no DOM, no database — just input/output.
 
 import { describe, it, expect } from 'vitest'
-import { computeAccountBalances, type AccountInfo } from '@/lib/account'
+import {
+  computeAccountBalances,
+  carryInBalance,
+  type AccountInfo,
+} from '@/lib/account'
 
 const accounts: AccountInfo[] = [
   { id: 'a', name: 'Conta A', initialBalance: 100000, color: '#111' },
@@ -41,5 +45,20 @@ describe('computeAccountBalances', () => {
     const { accounts: rows, total } = computeAccountBalances([], [])
     expect(rows).toEqual([])
     expect(total).toBe(0)
+  })
+})
+
+describe('carryInBalance', () => {
+  it('carry-in = initial balances + income before − expense before', () => {
+    // 100000 (initial) + 500000 (income) − 480000 (expense) = 120000.
+    expect(carryInBalance(100000, 500000, 480000)).toBe(120000)
+  })
+
+  it('is just the initial balances when there is no prior activity', () => {
+    expect(carryInBalance(100000, 0, 0)).toBe(100000)
+  })
+
+  it('can be negative when prior expenses exceed initial + income', () => {
+    expect(carryInBalance(0, 30000, 50000)).toBe(-20000)
   })
 })
