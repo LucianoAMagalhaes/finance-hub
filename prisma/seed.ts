@@ -51,6 +51,15 @@ const CATEGORIES: Array<{
   { name: 'Freela', icon: '💼', color: '#14b8a6', type: 'income', targetPercent: 0 },
   { name: 'Rendimentos', icon: '🪙', color: '#0ea5e9', type: 'income', targetPercent: 0 },
   { name: 'Outras Receitas', icon: '➕', color: '#6b7280', type: 'income', targetPercent: 0 },
+  // Carry-over ("saldo transportado") — a dedicated category, kept separate from
+  // the six real jars, used to move a month's leftover into the next month as a
+  // manual pair: an EXPENSE that zeroes the closing month + an INCOME that opens
+  // the next month. The two cancel out in "Total em conta" (no double-counting),
+  // while the income side feeds the next month's budget so the leftover can be
+  // spent without blowing the jars. It exists for both types and takes 0% so it
+  // never competes for budget share with the real jars.
+  { name: 'Saldo transportado', icon: '🔄', color: '#64748b', type: 'expense', targetPercent: 0 },
+  { name: 'Saldo transportado', icon: '🔄', color: '#64748b', type: 'income', targetPercent: 0 },
 ]
 
 // --- Tags (markers/marcadores) -------------------------------------------
@@ -74,27 +83,27 @@ async function main() {
   console.log(`✓ Local user ready: ${user.name} <${user.email}> (${user.id})`)
 
   // 2) Categories. There is no unique constraint on (userId, name), so we
-  //    check-then-create to stay idempotent without altering the schema. When a
-  //    category already exists we still refresh its targetPercent, so re-seeding
-  //    restores the default plan (and back-fills rows created before the column).
+  //    check-then-create to stay idempotent without altering the schema.
+  //
+  //    IMPORTANT: when a category already exists we leave it completely
+  //    untouched. `targetPercent` is USER-OWNED — it's edited in Configurações
+  //    ("Metas dos potes") and must sum to the user's own plan. An earlier
+  //    version re-applied the default targetPercent here, which meant re-running
+  //    the seed (e.g. to add a new default category) silently overwrote the
+  //    user's customized percentages back to the defaults. So the seed only ever
+  //    CREATES missing categories; it never edits existing ones.
   let categoriesCreated = 0
   for (const category of CATEGORIES) {
     const existing = await prisma.category.findFirst({
       where: { userId: user.id, name: category.name, type: category.type },
     })
-    if (existing) {
-      await prisma.category.update({
-        where: { id: existing.id },
-        data: { targetPercent: category.targetPercent },
-      })
-      continue
-    }
+    if (existing) continue
     await prisma.category.create({ data: { ...category, userId: user.id } })
     categoriesCreated++
   }
   console.log(
     `✓ Categories: ${categoriesCreated} created, ` +
-      `${CATEGORIES.length - categoriesCreated} updated`,
+      `${CATEGORIES.length - categoriesCreated} left untouched`,
   )
 
   // 3) Tags. Tag has a unique (userId, name) constraint, so a real `upsert`
