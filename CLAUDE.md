@@ -8,7 +8,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-06-14
+**Atualizado em:** 2026-07-09
 
 ### Redesenho do modelo (concluído) — método dos 6 potes com percentuais
 
@@ -135,6 +135,26 @@ Rodada seguinte de melhorias. **Uma branch por item**; todas mergeadas em `main`
     dele. O seed agora **só cria** categorias faltantes e nunca edita as
     existentes.
 
+### Saldo real sem crédito no dashboard (concluída) — 2026-07-09
+
+- ✅ **`feat/real-account-balance`** (PR #40) — novo card **"Saldo real (sem
+  crédito)"** no dashboard, ao lado do **"Total em conta"**. Motivo: compras no
+  cartão de **crédito** são lançadas como despesa na hora, mas o dinheiro só sai
+  da conta quando a **fatura** é paga — então o "Total em conta" (cumulativo)
+  lê **abaixo** do saldo real do banco. O card novo é **escopo do mês
+  selecionado** (segue o seletor de período, como os cards de Receitas/Despesas)
+  e mostra `receitas do mês − despesas do mês (exceto crédito)`. Como a sobra do
+  mês anterior entra como **receita** (par "Saldo transportado"), esse valor bate
+  com o que está de fato na conta. Legenda mostra a **fatura de crédito do mês**
+  (o que ficou de fora). Escopo **mínimo**, decidido com o usuário: mantém o
+  tratamento atual das transações intacto (o "Total em conta" não muda) e **não**
+  rastreia o que já foi pago da fatura — o crédito do mês é só exibição.
+  **Sem query nova**: reaproveita os agregados do mês que a page já calcula
+  (`income`, `expense`, `paymentTotals`); componente
+  `components/dashboard/real-balance-card.tsx`. **Descartadas** (por ora) as
+  alternativas de marcar fatura como paga (campo `settled`) e de modelar o cartão
+  como conta/passivo separado (precisaria de transferências entre contas).
+
 ### Concluído
 - [x] **Scaffold** Next.js 14 (App Router, TypeScript, Tailwind, ESLint) — `main`, commit `chore: scaffold Next.js 14 project...`. App roda em `http://localhost:3000`.
 - [x] **Setup do banco** — branch `chore/database-setup`
@@ -260,6 +280,9 @@ services:
 - **Filtro de período** (dropdowns de mês/ano na URL; padrão = mês atual)
 - **Card "Total em conta"** (saldo corrente somando as contas; histórico, não
   filtrado pelo período)
+- **Card "Saldo real (sem crédito)"** (saldo do mês selecionado =
+  `receitas − despesas sem crédito`; bate com a conta real do banco, já que o
+  cartão de crédito só sai na fatura; legenda com a fatura de crédito do mês)
 - Total de receitas e despesas do mês + saldo
 - Gráfico de evolução do saldo (últimos 6 meses, terminando no mês selecionado)
 - **Orçamento do mês por pote** (limite derivado de `% × renda`) com
@@ -306,9 +329,11 @@ Navegação por **sidebar lateral** (`Dashboard · Transações · Configuraçõ
 Não há mais telas separadas de Orçamentos nem de Metas (ver "Reorganização de
 navegação/UX" acima).
 
-1. **Dashboard** (`/`) — filtro de mês/ano, card **"Total em conta"**, resumo do
-   mês, gráfico de 6 meses, **orçamento por pote com drill-down**, **despesas por
-   marcador** e **por forma de pagamento** (barras), e últimas 5 transações
+1. **Dashboard** (`/`) — filtro de mês/ano, card **"Total em conta"**, card
+   **"Saldo real (sem crédito)"** (saldo do mês, exclui cartão de crédito),
+   resumo do mês, gráfico de 6 meses, **orçamento por pote com drill-down**,
+   **despesas por marcador** e **por forma de pagamento** (barras), e últimas 5
+   transações
 2. **Transações** (`/transactions`) — tabela full-width (com coluna **Conta**) e
    filtros/busca; criar via modal, editar em `/transactions/[id]/edit`. Toda
    transação tem **conta (obrigatória)**

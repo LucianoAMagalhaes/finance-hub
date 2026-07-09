@@ -26,6 +26,7 @@ import {
 import { BarList, type Bar } from '@/components/dashboard/bar-list'
 import { PeriodSelector } from '@/components/dashboard/period-selector'
 import { AccountsBalanceCard } from '@/components/dashboard/accounts-balance-card'
+import { RealBalanceCard } from '@/components/dashboard/real-balance-card'
 import { computeAccountBalances } from '@/lib/account'
 import {
   PAYMENT_METHOD_LABELS,
@@ -226,6 +227,15 @@ export default async function DashboardPage({
       })),
     )
 
+  // "Saldo real (sem crédito)" for the SELECTED month. Credit-card purchases are
+  // recorded as an expense right away, but the money only leaves the account when
+  // the invoice is paid — so we leave them out. Because the leftover from the
+  // previous month is carried in as income (see "Saldo transportado" in
+  // CLAUDE.md), this month's (income − non-credit expenses) matches what is
+  // actually in the bank. `creditThisMonth` is the invoice building up this month.
+  const creditThisMonth = paymentTotals.get('credit') ?? 0
+  const realBalance = income - (expense - creditThisMonth)
+
   return (
     <main className="max-w-[1320px] space-y-5 p-6 lg:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -238,8 +248,13 @@ export default async function DashboardPage({
       </header>
 
       {/* Row 1: headline figures. Total em conta (running balance) + month totals. */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr_1fr]">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr]">
         <AccountsBalanceCard total={totalInAccounts} accounts={accountBalances} />
+        <RealBalanceCard
+          realBalance={realBalance}
+          creditThisMonth={creditThisMonth}
+          periodLabel={periodLabel}
+        />
         <SummaryCards income={income} expense={expense} periodLabel={periodLabel} />
       </div>
 
