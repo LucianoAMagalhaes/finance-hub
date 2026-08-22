@@ -25,6 +25,7 @@ import {
   scoreQuestionSchema,
   scoreQuestionEditSchema,
 } from '@/lib/scoring-schema'
+import { allocationTargetsSchema } from '@/lib/allocation'
 
 // Shared result shape used by all the actions (same as the other features).
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -473,5 +474,44 @@ export async function moveScoreQuestion(
   } catch (error) {
     console.error('moveScoreQuestion failed:', error)
     return { ok: false, error: 'Não foi possível reordenar a pergunta.' }
+  }
+}
+
+// --- Allocation targets (the investments plan) -----------------------------
+
+/**
+ * Saves the target share of each asset type in one go — the investments
+ * counterpart of setCategoryPercents above.
+ *
+ * The difference: categories are rows that already exist, so that one updates.
+ * Asset types are a fixed enum and the target row may never have been created,
+ * so this one UPSERTS on the (userId, type) unique key. One transaction, so the
+ * plan never lands half-saved.
+ *
+ * @param input - Raw array of { type, percent } from the editor (re-validated).
+ */
+export async function setAllocationTargets(input: unknown): Promise<ActionResult> {
+  const parsed = allocationTargetsSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+
+    await prisma.$transaction(
+      parsed.data.map((row) =>
+        prisma.allocationTarget.upsert({
+          where: { userId_type: { userId: user.id, type: row.type } },
+          update: { targetPercent: row.percent },
+          create: { userId: user.id, type: row.type, targetPercent: row.percent },
+        }),
+      ),
+    )
+
+    revalidatePath('/settings')
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('setAllocationTargets failed:', error)
+    return { ok: false, error: 'Não foi possível salvar as metas de alocação.' }
   }
 }

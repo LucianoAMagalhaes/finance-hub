@@ -19,6 +19,12 @@ import {
   ScoreQuestionManager,
   type ScoreQuestionRow,
 } from './score-question-manager'
+import {
+  AllocationTargetEditor,
+  type AllocationRow,
+} from './allocation-target-editor'
+import { allocationByType, buildPositions, type AssetInfo } from '@/lib/portfolio'
+import { ASSET_TYPES } from '@/lib/constants'
 
 // Always render fresh data: the catalogs change as the user edits them here.
 export const dynamic = 'force-dynamic'
@@ -27,7 +33,8 @@ export default async function SettingsPage() {
   const user = await getLocalUser()
 
   // Fetch the catalogs in parallel (independent queries).
-  const [categories, tags, accounts, scoreQuestions] = await Promise.all([
+  const [categories, tags, accounts, scoreQuestions, targets, assets, operations] =
+    await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
       select: {
@@ -64,6 +71,27 @@ export default async function SettingsPage() {
       },
       orderBy: [{ scope: 'asc' }, { position: 'asc' }],
     }),
+    // The allocation plan, plus what the portfolio actually holds today: the
+    // editor shows the goal next to the reality, so the gap the aporte planner
+    // will close is visible while the plan is being written.
+    prisma.allocationTarget.findMany({
+      where: { userId: user.id },
+      select: { type: true, targetPercent: true },
+    }),
+    prisma.asset.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        ticker: true,
+        type: true,
+        currentPriceCents: true,
+        priceUpdatedAt: true,
+      },
+    }),
+    prisma.assetOperation.findMany({
+      where: { userId: user.id },
+      select: { assetId: true, type: true, quantity: true, totalCents: true, date: true },
+    }),
   ])
 
   // The Prisma select already matches EntityRow's shape (targetPercent is an
@@ -97,6 +125,29 @@ export default async function SettingsPage() {
     position: q.position,
     answerCount: q._count.answers,
   }))
+  // Today's split by type. Decimal -> number at the boundary, same as the
+  // portfolio page does (ADR-007), then the position math derives the value.
+  const positions = buildPositions(
+    assets.map((asset) => ({
+      ...asset,
+      currentPriceCents:
+        asset.currentPriceCents === null ? null : Number(asset.currentPriceCents),
+    })) as AssetInfo[],
+    operations.map((op) => ({ ...op, quantity: Number(op.quantity) })),
+  )
+  const currentByType = new Map(
+    allocationByType(positions).map((slice) => [slice.type, slice.percent]),
+  )
+  const savedTargets = new Map(targets.map((t) => [t.type, t.targetPercent]))
+
+  // Every type is always on screen, saved row or not: a type at 0% has to be a
+  // deliberate zero, not a line the user never saw.
+  const allocationRows: AllocationRow[] = ASSET_TYPES.map((type) => ({
+    type,
+    targetPercent: savedTargets.get(type) ?? 0,
+    currentPercent: currentByType.get(type) ?? 0,
+  }))
+
   // Account color is nullable too; same neutral fallback.
   const accountRows: AccountRow[] = accounts.map((a) => ({
     id: a.id,
@@ -141,6 +192,16 @@ export default async function SettingsPage() {
         description="Quanto da sua renda mensal vai para cada pote de despesa. O ideal é somar 100%."
       >
         <CategoryPercentEditor items={percentRows} />
+      </Section>
+
+      <Section
+        title="Metas de alocação"
+        description="Quanto da sua carteira de investimentos você quer em cada tipo de ativo. O ideal é somar 100%."
+      >
+        <AllocationTargetEditor
+          items={allocationRows}
+          hasPortfolio={positions.length > 0}
+        />
       </Section>
 
       <Section
