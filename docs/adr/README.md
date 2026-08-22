@@ -14,3 +14,4 @@ Registros curtos das decisões técnicas relevantes do projeto. Cada ADR respond
 | [ADR-006](ADR-006-design-system-cofre.md) | Design system "cofre" próprio, tema escuro fixo | accepted |
 | [ADR-007](ADR-007-precisao-quantidade-e-cotacao.md) | Centavos inteiros para dinheiro; `Decimal` para quantidade e cotação | accepted |
 | [ADR-008](ADR-008-investimentos-modulo-separado.md) | Carteira manual, desacoplada do orçamento doméstico | accepted |
+| [ADR-009](ADR-009-nota-do-ativo-e-sugestao-de-aporte.md) | Nota do ativo por checklist e sugestão de aporte por lacuna | accepted |

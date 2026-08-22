@@ -20,9 +20,15 @@ import {
   summarizePortfolio,
   type AssetInfo,
 } from '@/lib/portfolio'
+import {
+  computeAssetScores,
+  scoreScopeFor,
+  type Question,
+} from '@/lib/scoring'
 import { AllocationChart } from './allocation-chart'
 import { NewPurchaseButton } from './new-purchase-button'
 import { PortfolioTable, type OperationRow, type PortfolioRow } from './portfolio-table'
+import type { ScoreSheetAsset } from './score-sheet'
 
 // Always render fresh data: the table changes on every asset or operation the
 // user records, and the actions revalidate this path.
@@ -31,8 +37,8 @@ export const dynamic = 'force-dynamic'
 export default async function PortfolioPage() {
   const user = await getLocalUser()
 
-  // Both queries run in parallel — they don't depend on each other.
-  const [assets, operations] = await Promise.all([
+  // All four queries run in parallel — they don't depend on each other.
+  const [assets, operations, questions, answers] = await Promise.all([
     prisma.asset.findMany({
       where: { userId: user.id },
       select: {
@@ -41,6 +47,7 @@ export default async function PortfolioPage() {
         type: true,
         currentPriceCents: true,
         priceUpdatedAt: true,
+        manualScore: true,
       },
       orderBy: { ticker: 'asc' },
     }),
@@ -55,6 +62,17 @@ export default async function PortfolioPage() {
         date: true,
         createdAt: true,
       },
+    }),
+    // The checklists and this user's answers. Both are small tables (a few
+    // dozen rows), so one flat fetch each beats a per-asset query.
+    prisma.scoreQuestion.findMany({
+      where: { userId: user.id },
+      select: { id: true, scope: true, text: true, hint: true, position: true },
+      orderBy: [{ scope: 'asc' }, { position: 'asc' }],
+    }),
+    prisma.scoreAnswer.findMany({
+      where: { userId: user.id },
+      select: { assetId: true, questionId: true, value: true },
     }),
   ])
 
@@ -72,6 +90,31 @@ export default async function PortfolioPage() {
   const positions = buildPositions(assetInfos, operationInputs)
   const summary = summarizePortfolio(positions)
 
+  // The score of every asset, DERIVED from the answers (lib/scoring) exactly
+  // like the position is derived from the operations — nothing about the score
+  // is stored, so it can never disagree with the checklist behind it.
+  const scores = computeAssetScores(assets, questions as Question[], answers)
+
+  // The checklist questions grouped by scope, so each row can hand its own sheet
+  // straight to the modal without a second pass.
+  const questionsByScope = new Map<string, Question[]>()
+  for (const question of questions) {
+    const list = questionsByScope.get(question.scope)
+    if (list) list.push(question)
+    else questionsByScope.set(question.scope, [question])
+  }
+
+  // Each asset's saved answers as a { questionId: value } map — the shape the
+  // modal edits.
+  const answersByAsset = new Map<string, Record<string, boolean>>()
+  for (const answer of answers) {
+    const current = answersByAsset.get(answer.assetId) ?? {}
+    current[answer.questionId] = answer.value
+    answersByAsset.set(answer.assetId, current)
+  }
+
+  const manualScoreById = new Map(assets.map((asset) => [asset.id, asset.manualScore]))
+
   // Group the operations by asset once, so each row already carries its own
   // history: unfolding a ticker in the table costs no extra query (the same
   // trick the dashboard uses for the jar drill-down).
@@ -85,10 +128,25 @@ export default async function PortfolioPage() {
   // Biggest position first; fully sold ones sink to the bottom.
   const rows: PortfolioRow[] = [...positions]
     .sort((a, b) => positionValueCents(b) - positionValueCents(a))
-    .map((position) => ({
-      ...position,
-      operations: byAsset.get(position.id) ?? [],
-    }))
+    .map((position) => {
+      const scope = scoreScopeFor(position.type)
+      const sheet: ScoreSheetAsset = {
+        id: position.id,
+        ticker: position.ticker,
+        // null questions = this type has no checklist, so the modal shows the
+        // hand-typed score instead.
+        questions: scope === null ? null : (questionsByScope.get(scope) ?? []),
+        answers: answersByAsset.get(position.id) ?? {},
+        manualScore: manualScoreById.get(position.id) ?? null,
+      }
+
+      return {
+        ...position,
+        operations: byAsset.get(position.id) ?? [],
+        score: scores.get(position.id)!,
+        sheet,
+      }
+    })
 
   const now = new Date()
 
@@ -105,8 +163,9 @@ export default async function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Carteira</h1>
           <p className="mt-1 text-sm text-cofre-muted">
-            Seus ativos, com quantidade, preço médio e valor atual. Clique na
-            seta para ver as compras do ticker.
+            Seus ativos, com quantidade, preço médio, valor atual e nota.
+            Clique na nota para avaliar, ou na seta para ver as compras do
+            ticker.
           </p>
         </div>
         <NewPurchaseButton />

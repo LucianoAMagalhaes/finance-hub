@@ -15,6 +15,10 @@ import {
   CategoryPercentEditor,
   type PercentRow,
 } from './category-percent-editor'
+import {
+  ScoreQuestionManager,
+  type ScoreQuestionRow,
+} from './score-question-manager'
 
 // Always render fresh data: the catalogs change as the user edits them here.
 export const dynamic = 'force-dynamic'
@@ -23,7 +27,7 @@ export default async function SettingsPage() {
   const user = await getLocalUser()
 
   // Fetch the catalogs in parallel (independent queries).
-  const [categories, tags, accounts] = await Promise.all([
+  const [categories, tags, accounts, scoreQuestions] = await Promise.all([
     prisma.category.findMany({
       where: { userId: user.id },
       select: {
@@ -45,6 +49,20 @@ export default async function SettingsPage() {
       where: { userId: user.id },
       select: { id: true, name: true, initialBalance: true, color: true },
       orderBy: { name: 'asc' },
+    }),
+    // The scoring checklist. `_count.answers` tells the delete confirmation how
+    // many answers a question would take down with it (onDelete: Cascade).
+    prisma.scoreQuestion.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        scope: true,
+        text: true,
+        hint: true,
+        position: true,
+        _count: { select: { answers: true } },
+      },
+      orderBy: [{ scope: 'asc' }, { position: 'asc' }],
     }),
   ])
 
@@ -70,6 +88,15 @@ export default async function SettingsPage() {
     name: t.name,
     color: t.color ?? '#6b7280',
   }))
+  // Flatten Prisma's _count into the plain shape the manager expects.
+  const scoreQuestionRows: ScoreQuestionRow[] = scoreQuestions.map((q) => ({
+    id: q.id,
+    scope: q.scope,
+    text: q.text,
+    hint: q.hint,
+    position: q.position,
+    answerCount: q._count.answers,
+  }))
   // Account color is nullable too; same neutral fallback.
   const accountRows: AccountRow[] = accounts.map((a) => ({
     id: a.id,
@@ -83,7 +110,8 @@ export default async function SettingsPage() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
         <p className="text-sm text-cofre-muted">
-          Edite seu perfil e personalize categorias, contas e marcadores.
+          Edite seu perfil e personalize categorias, contas, marcadores e o
+          checklist de avaliação dos ativos.
         </p>
       </header>
 
@@ -113,6 +141,13 @@ export default async function SettingsPage() {
         description="Quanto da sua renda mensal vai para cada pote de despesa. O ideal é somar 100%."
       >
         <CategoryPercentEditor items={percentRows} />
+      </Section>
+
+      <Section
+        title="Checklist de avaliação"
+        description="As perguntas que dão a nota de cada ação e FII. Cada “sim” soma 1 ponto e cada “não” tira 1."
+      >
+        <ScoreQuestionManager items={scoreQuestionRows} />
       </Section>
 
       <Section

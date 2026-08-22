@@ -17,6 +17,8 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
+import { assetAnswersSchema, manualScoreSchema } from '@/lib/scoring-schema'
+import { scoreScopeFor } from '@/lib/scoring'
 import {
   assetSchema,
   purchaseEditSchema,
@@ -321,5 +323,111 @@ export async function deleteAsset(id: string): Promise<ActionResult> {
   } catch (error) {
     console.error('deleteAsset failed:', error)
     return { ok: false, error: 'Não foi possível excluir o ativo.' }
+  }
+}
+
+// --- Scoring --------------------------------------------------------------
+// The user grades each asset so the aporte planner knows which ones deserve the
+// next money (see lib/scoring.ts and ADR-009). Stocks and FIIs answer the
+// checklist; crypto and fixed income carry a hand-typed score instead.
+
+/**
+ * Saves an asset's checklist answers, replacing whatever was there.
+ *
+ * Wipe-and-rewrite instead of a per-answer diff: the modal always submits the
+ * complete sheet, so this is one round trip and it also handles CLEARING a
+ * question (the answer simply is not in the array any more) without a special
+ * case for it.
+ *
+ * @param assetId - The asset being graded (ownership is checked below).
+ * @param input - Raw array of { questionId, value } from the modal.
+ */
+export async function setAssetAnswers(
+  assetId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = assetAnswersSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+
+    const asset = await prisma.asset.findFirst({
+      where: { id: assetId, userId: user.id },
+      select: { id: true, type: true },
+    })
+    if (!asset) return { ok: false, error: 'Ativo não encontrado.' }
+
+    const scope = scoreScopeFor(asset.type)
+    if (scope === null) {
+      return {
+        ok: false,
+        error: 'Este tipo de ativo não usa checklist — a nota é digitada à mão.',
+      }
+    }
+
+    // Only questions of THIS asset's checklist, and only the user's own: a
+    // forged questionId would otherwise let an answer point anywhere.
+    const valid = await prisma.scoreQuestion.findMany({
+      where: {
+        userId: user.id,
+        scope,
+        id: { in: parsed.data.map((answer) => answer.questionId) },
+      },
+      select: { id: true },
+    })
+    const validIds = new Set(valid.map((question) => question.id))
+    const rows = parsed.data.filter((answer) => validIds.has(answer.questionId))
+
+    await prisma.$transaction(async (tx) => {
+      await tx.scoreAnswer.deleteMany({ where: { assetId: asset.id, userId: user.id } })
+      if (rows.length > 0) {
+        await tx.scoreAnswer.createMany({
+          data: rows.map((answer) => ({
+            userId: user.id,
+            assetId: asset.id,
+            questionId: answer.questionId,
+            value: answer.value,
+          })),
+        })
+      }
+    })
+
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('setAssetAnswers failed:', error)
+    return { ok: false, error: 'Não foi possível salvar a avaliação.' }
+  }
+}
+
+/**
+ * Sets the hand-typed score of a crypto / fixed-income asset. Null clears it
+ * back to "not graded", which is what keeps it out of the aporte suggestion.
+ *
+ * @param assetId - The asset (ownership is enforced in the where clause).
+ * @param input - Raw { manualScore } from the modal, -10..10 or null.
+ */
+export async function setAssetManualScore(
+  assetId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = manualScoreSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+
+    const result = await prisma.asset.updateMany({
+      where: { id: assetId, userId: user.id },
+      data: { manualScore: parsed.data.manualScore },
+    })
+    if (result.count === 0) return { ok: false, error: 'Ativo não encontrado.' }
+
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('setAssetManualScore failed:', error)
+    return { ok: false, error: 'Não foi possível salvar a nota.' }
   }
 }
