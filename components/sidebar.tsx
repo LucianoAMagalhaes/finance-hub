@@ -17,6 +17,7 @@ import {
   Settings,
   TrendingUp,
   Briefcase,
+  HandCoins,
   ChevronDown,
   ChevronRight,
   type LucideIcon,
@@ -52,7 +53,10 @@ const GROUPS: NavGroup[] = [
     id: 'investments',
     label: 'Investimentos',
     icon: TrendingUp,
-    items: [{ href: '/investments/portfolio', label: 'Carteira', icon: Briefcase }],
+    items: [
+      { href: '/investments/portfolio', label: 'Carteira', icon: Briefcase },
+      { href: '/investments/contributions', label: 'Aportes', icon: HandCoins },
+    ],
   },
 ]
 
