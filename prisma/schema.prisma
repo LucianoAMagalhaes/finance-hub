@@ -56,6 +56,8 @@ model User {
   transactions    Transaction[]
   assets          Asset[]
   assetOperations AssetOperation[]
+  scoreQuestions  ScoreQuestion[]
+  scoreAnswers    ScoreAnswer[]
 
   @@map("users")
 }
@@ -65,15 +67,15 @@ model User {
 // Conhecimento. For income it represents the source (Salário, Rendimentos...).
 // Every transaction MUST belong to exactly one category.
 model Category {
-  id    String          @id @default(cuid())
-  name  String
-  icon  String
-  color String
-  type  TransactionType
+  id            String          @id @default(cuid())
+  name          String
+  icon          String
+  color         String
+  type          TransactionType
   // Target share of monthly income allocated to this jar, as a whole-number
   // percentage 0-100 (the "Metas" screen edits these). Only meaningful for
   // expense categories; income categories keep the default 0.
-  targetPercent Int @default(0) @map("target_percent")
+  targetPercent Int             @default(0) @map("target_percent")
 
   // Owner of this category.
   userId String @map("user_id")
@@ -117,17 +119,17 @@ model Transaction {
   notes         String?
   createdAt     DateTime        @default(now()) @map("created_at")
 
-  userId        String       @map("user_id")
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String      @map("user_id")
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   // The "jar" — required.
-  categoryId    String       @map("category_id")
-  category      Category     @relation(fields: [categoryId], references: [id])
+  categoryId String      @map("category_id")
+  category   Category    @relation(fields: [categoryId], references: [id])
   // At most one reusable marker — optional.
-  tagId         String?      @map("tag_id")
-  tag           Tag?         @relation(fields: [tagId], references: [id])
+  tagId      String?     @map("tag_id")
+  tag        Tag?        @relation(fields: [tagId], references: [id])
   // The bank account the money moved through — required.
-  accountId     String       @map("account_id")
-  account       BankAccount  @relation(fields: [accountId], references: [id])
+  accountId  String      @map("account_id")
+  account    BankAccount @relation(fields: [accountId], references: [id])
 
   @@map("transactions")
 }
@@ -174,6 +176,14 @@ enum AssetOperationType {
   sell
 }
 
+// Which checklist a question belongs to. An asset's type decides which one it
+// is graded by: stock_br and stock_intl share the `stocks` list, fii uses
+// `fiis`, and crypto/fixed_income have no checklist at all (manual score).
+enum ScoreScope {
+  stocks
+  fiis
+}
+
 // An Asset is one line of the portfolio — a ticker the user holds.
 //
 // Money keeps living in integer cents everywhere in this app (ADR-005), but a
@@ -195,10 +205,16 @@ model Asset {
   priceUpdatedAt    DateTime? @map("price_updated_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
+  // Score typed in by hand, -10..10, ONLY for the types that have no checklist
+  // (crypto, fixed_income). Same scale as the derived checklist score so the
+  // "Nota" column reads the same for every line. Null = not graded yet.
+  manualScore Int? @map("manual_score")
+
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  operations AssetOperation[]
+  operations   AssetOperation[]
+  scoreAnswers ScoreAnswer[]
 
   // One row per ticker per user. There is no "name" column on purpose: the
   // ticker IS the identity of the line, and the user registers PURCHASES, not
@@ -234,4 +250,57 @@ model AssetOperation {
   @@index([userId, assetId])
   @@index([assetId, date])
   @@map("asset_operations")
+}
+
+// ----- Phase 2 — Asset scoring -------------------------------------------
+// The user grades each stock/FII against a checklist of objective yes/no
+// questions. Every "sim" adds 1, every "não" subtracts 1, so the score runs
+// from -10 to +10 for a 10-question list (see ADR-009). The score is DERIVED
+// from the answers by lib/scoring.ts — never stored — for the same reason the
+// portfolio position is derived: it can then never disagree with its inputs.
+
+// One question of one checklist. The user writes these in Configurações; the
+// seed only offers a starting set when a scope has none.
+model ScoreQuestion {
+  id        String     @id @default(cuid())
+  scope     ScoreScope
+  text      String
+  // Optional supporting note shown under the question, e.g. "Histórico: 5 anos".
+  hint      String?
+  // Display order inside its scope. New questions go to the end (max + 1) and
+  // the ↑/↓ buttons swap this value with the neighbour's.
+  position  Int
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  userId  String        @map("user_id")
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers ScoreAnswer[]
+
+  @@index([userId, scope, position])
+  @@map("score_questions")
+}
+
+// One asset's answer to one question. A MISSING row means "not answered yet",
+// which is different from `false` ("não", which costs a point) — that is why
+// there is no default here and why the UI has a "limpar" action.
+model ScoreAnswer {
+  id        String   @id @default(cuid())
+  value     Boolean
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userId     String        @map("user_id")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Cascade on both sides: an answer is meaningless without its asset or its
+  // question, so deleting either one takes the answer with it (the delete
+  // confirmation in Configurações says how many answers go).
+  assetId    String        @map("asset_id")
+  asset      Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  questionId String        @map("question_id")
+  question   ScoreQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  // One answer per (asset, question) — the unique index is what lets the save
+  // action wipe-and-rewrite an asset's answers without ever duplicating a row.
+  @@unique([assetId, questionId])
+  @@index([userId, assetId])
+  @@map("score_answers")
 }

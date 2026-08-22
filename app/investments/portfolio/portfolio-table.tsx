@@ -24,15 +24,22 @@ import {
   type Operation,
   type Position,
 } from '@/lib/portfolio'
+import type { AssetScore } from '@/lib/scoring'
 import { AssetRowActions } from './asset-row-actions'
+import { ScoreCell } from './score-cell'
+import type { ScoreSheetAsset } from './score-sheet'
 import { PurchaseRowActions } from './purchase-row-actions'
 import { QuoteCell } from './quote-cell'
 
 /** One operation as the drill-down shows it (id included, for the React key). */
 export type OperationRow = Operation & { id: string }
 
-/** A position plus the history behind it. */
-export type PortfolioRow = Position & { operations: OperationRow[] }
+/** A position plus the history behind it and its evaluation. */
+export type PortfolioRow = Position & {
+  operations: OperationRow[]
+  score: AssetScore
+  sheet: ScoreSheetAsset
+}
 
 export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date }) {
   // Which ticker is unfolded (its asset id), or null for none. One at a time,
@@ -64,6 +71,7 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
             <th className="px-4 py-3 text-right font-semibold">Cotação</th>
             <th className="px-4 py-3 text-right font-semibold">Valor atual</th>
             <th className="px-4 py-3 text-right font-semibold">Resultado</th>
+            <th className="px-4 py-3 text-right font-semibold">Nota</th>
             <th className="px-4 py-3" />
             <th className="px-2 py-3" />
           </tr>
@@ -167,6 +175,15 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
                     )}
                   </td>
 
+                  {/* The evaluation. stopPropagation so opening the sheet does
+                      not also fold the row, same as the quote cell above. */}
+                  <td
+                    className="px-2 py-2 text-right"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <ScoreCell asset={row.sheet} score={row.score} />
+                  </td>
+
                   {/* stopPropagation again: Editar/Excluir are not "fold". */}
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <AssetRowActions
@@ -202,7 +219,7 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
 
                 {open && (
                   <tr className="border-b border-cofre-border/60">
-                    <td colSpan={9} className="bg-cofre-panel px-4 py-4">
+                    <td colSpan={10} className="bg-cofre-panel px-4 py-4">
                       <OperationsPanel ticker={row.ticker} operations={row.operations} />
                     </td>
                   </tr>

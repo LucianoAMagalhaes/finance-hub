@@ -93,3 +93,21 @@ export const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   crypto: '#F472B6',
   fixed_income: '#94A3B8',
 }
+
+// --- Phase 2 — Asset scoring ------------------------------------------------
+// Mirrors the ScoreScope enum in prisma/schema.prisma. A checklist belongs to a
+// scope, and an asset's TYPE decides which scope grades it (see scoreScopeFor
+// in lib/scoring.ts): stocks cover both stock_br and stock_intl, fiis covers
+// fii, and crypto/fixed_income are graded by hand instead.
+export const SCORE_SCOPES = ['stocks', 'fiis'] as const
+export type ScoreScope = (typeof SCORE_SCOPES)[number]
+
+export const SCORE_SCOPE_LABELS: Record<ScoreScope, string> = {
+  stocks: 'Ações',
+  fiis: 'FIIs',
+}
+
+// The hand-typed score (crypto, fixed income) uses the SAME range the checklist
+// produces, so the "Nota" column means one thing across the whole table.
+export const MANUAL_SCORE_MIN = -10
+export const MANUAL_SCORE_MAX = 10

@@ -21,6 +21,10 @@ import {
   tagSchema,
 } from '@/lib/settings-schema'
 import { categoryPercentsSchema } from '@/lib/category-percent'
+import {
+  scoreQuestionSchema,
+  scoreQuestionEditSchema,
+} from '@/lib/scoring-schema'
 
 // Shared result shape used by all the actions (same as the other features).
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -318,5 +322,156 @@ export async function deleteAccount(id: string): Promise<ActionResult> {
   } catch (error) {
     console.error('deleteAccount failed:', error)
     return { ok: false, error: 'Não foi possível excluir a conta.' }
+  }
+}
+
+// --- Asset scoring checklist ----------------------------------------------
+// The questions each stock/FII is graded against (see lib/scoring.ts and
+// ADR-009). They live in the DB rather than in code so the user can refine them
+// as their own criteria mature, without touching the source.
+
+/**
+ * Creates a checklist question at the END of its list.
+ *
+ * The position is computed here rather than sent by the browser: two tabs open
+ * at once would otherwise both claim the same slot.
+ *
+ * @param input - Raw { scope, text, hint } from the manager (re-validated).
+ */
+export async function createScoreQuestion(input: unknown): Promise<ActionResult> {
+  const parsed = scoreQuestionSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+
+    const last = await prisma.scoreQuestion.findFirst({
+      where: { userId: user.id, scope: parsed.data.scope },
+      orderBy: { position: 'desc' },
+      select: { position: true },
+    })
+
+    await prisma.scoreQuestion.create({
+      data: { userId: user.id, ...parsed.data, position: (last?.position ?? -1) + 1 },
+    })
+
+    revalidatePath('/settings')
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('createScoreQuestion failed:', error)
+    return { ok: false, error: 'Não foi possível criar a pergunta.' }
+  }
+}
+
+/**
+ * Edits a question's wording. The scope is NOT editable: the answers already
+ * given belong to that checklist, and moving the question would silently make
+ * them count for the wrong assets.
+ *
+ * @param id - The question id (ownership is enforced in the where clause).
+ * @param input - Raw { text, hint } from the inline editor.
+ */
+export async function updateScoreQuestion(
+  id: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = scoreQuestionEditSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
+
+  try {
+    const user = await getLocalUser()
+    const result = await prisma.scoreQuestion.updateMany({
+      where: { id, userId: user.id },
+      data: parsed.data,
+    })
+    if (result.count === 0) return { ok: false, error: 'Pergunta não encontrada.' }
+
+    revalidatePath('/settings')
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('updateScoreQuestion failed:', error)
+    return { ok: false, error: 'Não foi possível salvar a pergunta.' }
+  }
+}
+
+/**
+ * Deletes a question. Its answers go with it (onDelete: Cascade), which changes
+ * the score of every asset that had answered it — the UI confirms first, saying
+ * how many answers will be lost (countScoreAnswers feeds that message).
+ *
+ * @param id - The question id (ownership is enforced in the where clause).
+ */
+export async function deleteScoreQuestion(id: string): Promise<ActionResult> {
+  try {
+    const user = await getLocalUser()
+    const result = await prisma.scoreQuestion.deleteMany({
+      where: { id, userId: user.id },
+    })
+    if (result.count === 0) return { ok: false, error: 'Pergunta não encontrada.' }
+
+    revalidatePath('/settings')
+    revalidatePath('/investments/portfolio')
+    return { ok: true }
+  } catch (error) {
+    console.error('deleteScoreQuestion failed:', error)
+    return { ok: false, error: 'Não foi possível excluir a pergunta.' }
+  }
+}
+
+/**
+ * Moves a question one slot up or down inside its checklist, by SWAPPING its
+ * position with its neighbour's. Both writes go in one transaction so the list
+ * can never end up with two questions claiming the same slot.
+ *
+ * @param id - The question to move.
+ * @param direction - 'up' towards the top of the list, 'down' towards the end.
+ */
+export async function moveScoreQuestion(
+  id: string,
+  direction: 'up' | 'down',
+): Promise<ActionResult> {
+  try {
+    const user = await getLocalUser()
+
+    const question = await prisma.scoreQuestion.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true, scope: true, position: true },
+    })
+    if (!question) return { ok: false, error: 'Pergunta não encontrada.' }
+
+    // The neighbour is the closest question on the requested side. Using a
+    // comparison (not position ± 1) keeps this working even if the positions
+    // ever have gaps in them.
+    const neighbour = await prisma.scoreQuestion.findFirst({
+      where: {
+        userId: user.id,
+        scope: question.scope,
+        position: direction === 'up' ? { lt: question.position } : { gt: question.position },
+      },
+      orderBy: { position: direction === 'up' ? 'desc' : 'asc' },
+      select: { id: true, position: true },
+    })
+    // Already at the edge of the list: nothing to swap with, and that is not an
+    // error worth showing.
+    if (!neighbour) return { ok: true }
+
+    await prisma.$transaction([
+      prisma.scoreQuestion.update({
+        where: { id: question.id },
+        data: { position: neighbour.position },
+      }),
+      prisma.scoreQuestion.update({
+        where: { id: neighbour.id },
+        data: { position: question.position },
+      }),
+    ])
+
+    revalidatePath('/settings')
+    return { ok: true }
+  } catch (error) {
+    console.error('moveScoreQuestion failed:', error)
+    return { ok: false, error: 'Não foi possível reordenar a pergunta.' }
   }
 }
