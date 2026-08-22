@@ -233,8 +233,68 @@ editado.
 
 ### Fase 1 — concluída ✅
 Todas as funcionalidades da Fase 1 estão entregues: transações, orçamentos,
-metas, dashboard, configurações e ADRs iniciais. Próximo grande passo é a
-**Fase 2 — Investimentos** (ver abaixo), a ser iniciada quando decidido.
+metas, dashboard, configurações e ADRs iniciais. A **Fase 2 — Investimentos**
+começou em 2026-08-21 — ver a seção seguinte.
+
+### Fase 2 — Investimentos (em andamento) — 2026-08-21
+
+Início da Fase 2. Decisões desta rodada (registradas nos
+**[ADR-007](docs/adr/ADR-007-precisao-quantidade-e-cotacao.md)** e
+**[ADR-008](docs/adr/ADR-008-investimentos-modulo-separado.md)**): carteira
+**manual** (cotação digitada à mão, API fica para depois), módulo
+**desacoplado** do orçamento (aporte **não** vira transação nem debita conta) e
+escopo em **Carteira + Visão Geral** (Proventos e Rentabilidade ficam de fora).
+O mockup `reference/HubFinanceiro.jsx` só tem placeholders para investimentos —
+as telas são desenhadas do zero, na paleta `cofre`.
+
+- ✅ **`feat/portfolio-assets`** — modelos **`Asset`** (ticker, classe, cotação
+  manual + `priceUpdatedAt`) e **`AssetOperation`** (buy/sell, `quantity`,
+  `totalCents`, data), migration `add_assets`. Tela **Carteira**
+  (`/investments/portfolio`) no espírito do **Google Finanças**: tabela densa,
+  classe embaixo do ticker (sem coluna própria), resultado em pill colorido e
+  uma **seta por linha que expande as compras daquele ticker** (Data da Compra,
+  Preço de Compra, Quantidade, Total). `lib/portfolio.ts` (puro) deriva a posição
+  pelo **custo médio**; `lib/asset-schema.ts` valida cliente+servidor;
+  `lib/format.ts` ganhou `parseQuantity`/`formatQuantity`/`parsePriceToCents`/
+  `formatPriceBRL` (cotação abaixo de um centavo precisa de 6 casas) e
+  `formatRelativeDay` ("há 3 dias", para a idade da cotação). Sidebar passou a
+  suportar **vários grupos** e ganhou "Investimentos".
+  - **Não existe "cadastrar ativo": o que se cadastra é uma COMPRA** (ticker,
+    classe, quantidade, preço de compra, data — sem nome, sem total). A action
+    `recordPurchase` cria o ativo na primeira vez que aquele ticker aparece e,
+    da segunda em diante, **reaproveita a linha** e só acrescenta a operação —
+    é assim que o preço médio se move. A classe do ativo já existente **não** é
+    alterada por uma compra nova (para corrigir: editar ou excluir o ticker).
+  - O **`totalCents` não vem do formulário**: o servidor deriva de
+    `quantidade × preço`, então cliente e servidor nunca discordam.
+  - A **cotação sai do cadastro** e é editável **na própria célula da tabela**
+    (`quote-cell.tsx` → `updateAssetQuote`) e no modal de edição. O
+    `priceUpdatedAt` só se move quando o preço muda de fato.
+  - **Cada compra é editável e excluível** dentro do painel expandido
+    (`updatePurchase`/`deletePurchase`). Excluir a **última** compra de um ticker
+    leva o ativo junto — uma linha sem histórico não teria posição para derivar.
+  - A seta de expandir fica **no fim da linha**, depois de Editar/Excluir, e
+    aponta **para onde o clique leva**: para baixo abre as compras, para cima
+    recolhe.
+  - **Gráfico de pizza "Alocação por tipo"** na própria Carteira
+    (`allocation-chart.tsx`, Recharts), com **percentual e valor** de cada tipo
+    na legenda. Usa `allocationByType`, que já existia.
+- [ ] **`feat/portfolio-operations`** — vendas e edição/exclusão de uma operação
+  (o cálculo de venda já está pronto e testado). O drill-down do histórico já
+  saiu junto da carteira.
+- [ ] **`feat/investments-overview`** — tela Visão Geral: cards consolidados
+  (o donut de alocação já saiu junto da Carteira).
+
+**Nomes:** o modelo de operações se chama **`AssetOperation`** (tabela
+`asset_operations`), não `AssetTransaction` — "transaction" já é o modelo do
+orçamento, e os dois módulos são separados de propósito.
+
+**Tipos de ativo** (o que a UI chama de **"Tipo"**, não "classe"): `stock_br`
+(Ação Nacional), `stock_intl` (Ação Internacional), `fii`, `crypto` e
+`fixed_income`. Substituíram a lista inicial (`stock`/`fii`/`etf`/`bdr`/
+`fixed_income`/`crypto`) na migration **`rename_asset_types`**, escrita à mão
+para **migrar as linhas existentes** em vez de falhar nelas
+(`stock`→`stock_br`, `bdr`/`etf`→`stock_intl`).
 
 ### Método de trabalho
 Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **por partes**: construir um pedaço pequeno, **ver funcionando** na aplicação, e só então commitar/mergear. Esta seção é atualizada a cada milestone.
@@ -382,18 +442,25 @@ navegação/UX" acima).
    transação tem **conta (obrigatória)**
 3. **Configurações** (`/settings`) — perfil, categorias, **"Metas dos potes"**
    (percentual-alvo por pote), **"Contas bancárias"** e marcadores
+4. **Carteira** (`/investments/portfolio`) — ativos com quantidade, preço médio,
+   investido, cotação (manual, **editável na própria célula**), valor atual e
+   resultado; **pizza de alocação por tipo** (percentual + valor); **seta no fim
+   da linha** que expande as compras do ticker, cada uma editável/excluível;
+   cadastro de **compra** via modal. `/investments` redireciona para cá enquanto
+   a Visão Geral não existe
 
 > Sem login/cadastro: app local single-user (ver ADR-004).
 
 ---
 
-### 🔒 Fase 2 — Investimentos (após Fase 1 concluída)
+### 🚧 Fase 2 — Investimentos (em andamento)
 
 **Objetivo:** carteira de investimentos com cotações via API.
 
 #### Funcionalidades planejadas
 
-- Cadastro manual de ativos (ação, FII, ETF, BDR, renda fixa, cripto)
+- Cadastro manual de compras (Ação Nacional, Ação Internacional, FII, Cripto,
+  Renda Fixa)
 - Cotações automáticas via **brapi.dev** (B3) e **CoinGecko** (cripto)
 - Câmbio via **AwesomeAPI** e indicadores macro via **API Banco Central (SGS)**
 - Rentabilidade por ativo e total da carteira
@@ -403,15 +470,27 @@ navegação/UX" acima).
 
 #### Modelo de dados adicional (Fase 2)
 
+> Fonte autoritativa: `prisma/schema.prisma`. Em relação ao esboço original,
+> `quantity`, `avg_price` e `name` **saíram** do `assets`: a posição é **derivada** das
+> operações por `lib/portfolio.ts` (custo médio), como os limites de orçamento
+> são derivados do percentual do pote. Precisões: ver
+> [ADR-007](docs/adr/ADR-007-precisao-quantidade-e-cotacao.md).
+
 ```
 assets
-  id, user_id, ticker, name, type
-  (stock|fii|etf|bdr|fixed_income|crypto),
-  quantity, avg_price, created_at
+  id, user_id, ticker, type
+  (stock_br|stock_intl|fii|crypto|fixed_income),
+  -- sem `name`: o ticker é a identidade da linha
+  current_price_cents?  -- cotação em centavos, DECIMAL (pode ser < 1 centavo)
+  price_updated_at?, created_at
+  -- unique (user_id, ticker)
 
-asset_transactions
-  id, asset_id, user_id, type (buy|sell|dividend),
-  quantity, price, date, created_at
+asset_operations
+  id, asset_id, user_id, type (buy|sell),
+  quantity,     -- DECIMAL(24,8): cripto é fracionária
+  total_cents,  -- dinheiro que se moveu, inteiro em centavos
+  date, notes?, created_at
+  -- preço unitário NÃO é gravado: é derivado (total_cents / quantity)
 ```
 
 ---

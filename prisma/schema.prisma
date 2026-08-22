@@ -48,11 +48,14 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  // Relations: one user owns many categories, tags, bank accounts and transactions.
-  categories    Category[]
-  tags          Tag[]
-  bankAccounts  BankAccount[]
-  transactions  Transaction[]
+  // Relations: one user owns many categories, tags, bank accounts, transactions
+  // and (Phase 2) assets with their operations.
+  categories      Category[]
+  tags            Tag[]
+  bankAccounts    BankAccount[]
+  transactions    Transaction[]
+  assets          Asset[]
+  assetOperations AssetOperation[]
 
   @@map("users")
 }
@@ -148,4 +151,87 @@ model BankAccount {
   transactions Transaction[]
 
   @@map("bank_accounts")
+}
+
+// ----- Phase 2 — Investments ---------------------------------------------
+// The investment module is deliberately SEPARATE from the household budget
+// above: buying an asset does not create a Transaction and does not touch a
+// BankAccount (see ADR-008). The two modules only share the User.
+
+// The asset types the portfolio supports. Shown to the user as "Tipo".
+enum AssetType {
+  stock_br // ação nacional
+  stock_intl // ação internacional (inclui BDR e stock lá fora)
+  fii // fundo imobiliário
+  crypto
+  fixed_income // renda fixa
+}
+
+// What an operation did to the position. Dividends (proventos) are a later
+// phase; adding them is an `ALTER TYPE ... ADD VALUE` migration.
+enum AssetOperationType {
+  buy
+  sell
+}
+
+// An Asset is one line of the portfolio — a ticker the user holds.
+//
+// Money keeps living in integer cents everywhere in this app (ADR-005), but a
+// QUANTITY of an asset is fractional (0.00123456 BTC) and a unit QUOTE can have
+// fractions of a cent, so those two are the only Decimal columns — see ADR-007.
+model Asset {
+  id                String    @id @default(cuid())
+  // Uppercase symbol, unique per user: "PETR4", "HGLG11", "BTC".
+  ticker            String
+  type              AssetType
+  // Current unit quote, typed in by hand for now (brapi.dev / CoinGecko will
+  // fill these automatically in a later branch — hence the timestamp).
+  //
+  // Stored in CENTS like every other amount in this app, but as Decimal: a
+  // QUOTE, unlike money that actually moved, can have fractions of a cent (a
+  // coin worth R$ 0,000071 is 0.0071 cents). Null = never priced, and the UI
+  // then shows "sem cotação" instead of pretending the position is worth 0.
+  currentPriceCents Decimal?  @map("current_price_cents") @db.Decimal(20, 6)
+  priceUpdatedAt    DateTime? @map("price_updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  operations AssetOperation[]
+
+  // One row per ticker per user. There is no "name" column on purpose: the
+  // ticker IS the identity of the line, and the user registers PURCHASES, not
+  // assets — buying PETR4 again reuses this row (recordPurchase looks it up by
+  // ticker) and just adds another operation, which is what moves the average
+  // price. The unique index is what keeps that reuse honest.
+  @@unique([userId, ticker])
+  @@map("assets")
+}
+
+// An AssetOperation is a buy or a sell. The position (quantity, average price,
+// cost) is always DERIVED from these rows by lib/portfolio.ts — never stored,
+// so it can never drift from the history.
+model AssetOperation {
+  id         String             @id @default(cuid())
+  type       AssetOperationType
+  quantity   Decimal            @db.Decimal(24, 8)
+  // The money that actually moved, in integer cents (ADR-005). The unit price
+  // is derived (totalCents / quantity), so there are never two fields that can
+  // disagree with each other.
+  totalCents Int                @map("total_cents")
+  date       DateTime
+  notes      String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  userId  String @map("user_id")
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Cascade: an operation makes no sense without its asset, so deleting the
+  // asset deletes its history (the UI confirms, showing how many rows go).
+  assetId String @map("asset_id")
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([userId, assetId])
+  @@index([assetId, date])
+  @@map("asset_operations")
 }
