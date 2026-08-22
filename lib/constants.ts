@@ -47,3 +47,49 @@ export const PAYMENT_METHOD_COLORS: Record<PaymentMethod, string> = {
   boleto: '#f59e0b',
   direct_debit: '#eab308',
 }
+
+// --- Phase 2 — Investments -------------------------------------------------
+// Same idea as above: these mirror the Prisma enums AssetType and
+// AssetOperationType, redeclared here so Client Components can use them
+// without bundling Prisma. Keep them in sync with prisma/schema.prisma.
+
+// The asset types the user actually tracks. Order matters: it is the order of
+// the dropdown, of the pie chart legend and of any list that groups by type.
+export const ASSET_TYPES = [
+  'stock_br',
+  'stock_intl',
+  'fii',
+  'crypto',
+  'fixed_income',
+] as const
+export type AssetType = (typeof ASSET_TYPES)[number]
+
+export const ASSET_OPERATION_TYPES = ['buy', 'sell'] as const
+export type AssetOperationType = (typeof ASSET_OPERATION_TYPES)[number]
+
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  stock_br: 'Ação Nacional',
+  stock_intl: 'Ação Internacional',
+  fii: 'FII',
+  crypto: 'Cripto',
+  fixed_income: 'Renda Fixa',
+}
+
+export const ASSET_OPERATION_TYPE_LABELS: Record<AssetOperationType, string> = {
+  buy: 'Compra',
+  sell: 'Venda',
+}
+
+// A fixed color per asset class, used by the class chips and (later) by the
+// allocation donut. Recharts needs a hex, not a Tailwind class, so these live
+// here — same precedent as PAYMENT_METHOD_COLORS.
+//
+// Deliberately NO jade and NO red: in this app those two already mean profit
+// and loss, so using them as a category color would make the donut ambiguous.
+export const ASSET_TYPE_COLORS: Record<AssetType, string> = {
+  stock_br: '#5BA3F5', // cofre blue
+  stock_intl: '#A78BFA',
+  fii: '#2DD4BF',
+  crypto: '#F472B6',
+  fixed_income: '#94A3B8',
+}

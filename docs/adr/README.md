@@ -12,3 +12,5 @@ Registros curtos das decisões técnicas relevantes do projeto. Cada ADR respond
 | [ADR-004](ADR-004-local-only-no-deploy.md) | App local, single-user, sem deploy/auth complexa | accepted |
 | [ADR-005](ADR-005-cents-for-money.md) | Valores monetários em centavos (inteiros) | accepted |
 | [ADR-006](ADR-006-design-system-cofre.md) | Design system "cofre" próprio, tema escuro fixo | accepted |
+| [ADR-007](ADR-007-precisao-quantidade-e-cotacao.md) | Centavos inteiros para dinheiro; `Decimal` para quantidade e cotação | accepted |
+| [ADR-008](ADR-008-investimentos-modulo-separado.md) | Carteira manual, desacoplada do orçamento doméstico | accepted |
