@@ -25,6 +25,7 @@ import {
   scoreScopeFor,
   type Question,
 } from '@/lib/scoring'
+import { toTargetMap } from '@/lib/allocation'
 import { AllocationChart } from './allocation-chart'
 import { NewPurchaseButton } from './new-purchase-button'
 import { PortfolioTable, type OperationRow, type PortfolioRow } from './portfolio-table'
@@ -37,8 +38,8 @@ export const dynamic = 'force-dynamic'
 export default async function PortfolioPage() {
   const user = await getLocalUser()
 
-  // All four queries run in parallel — they don't depend on each other.
-  const [assets, operations, questions, answers] = await Promise.all([
+  // All five queries run in parallel — they don't depend on each other.
+  const [assets, operations, questions, answers, allocationTargets] = await Promise.all([
     prisma.asset.findMany({
       where: { userId: user.id },
       select: {
@@ -73,6 +74,11 @@ export default async function PortfolioPage() {
     prisma.scoreAnswer.findMany({
       where: { userId: user.id },
       select: { assetId: true, questionId: true, value: true },
+    }),
+    // The allocation plan, so the legend can show goal beside reality.
+    prisma.allocationTarget.findMany({
+      where: { userId: user.id },
+      select: { type: true, targetPercent: true },
     }),
   ])
 
@@ -153,6 +159,9 @@ export default async function PortfolioPage() {
   // The split by type, for the pie beside the table. Open positions only — a
   // fully sold ticker is worth nothing today, so it has no slice.
   const slices = allocationByType(positions)
+  // Every type present, missing rows as 0% — the legend needs the deliberate
+  // zero, not an undefined.
+  const targets = toTargetMap(allocationTargets)
 
   return (
     // Full width, unlike the other screens' max-w-6xl: this table has nine
@@ -230,7 +239,7 @@ export default async function PortfolioPage() {
         }
       >
         <PortfolioTable rows={rows} now={now} />
-        {slices.length > 0 && <AllocationChart slices={slices} />}
+        {slices.length > 0 && <AllocationChart slices={slices} targets={targets} />}
       </div>
     </main>
   )

@@ -50,14 +50,15 @@ model User {
 
   // Relations: one user owns many categories, tags, bank accounts, transactions
   // and (Phase 2) assets with their operations.
-  categories      Category[]
-  tags            Tag[]
-  bankAccounts    BankAccount[]
-  transactions    Transaction[]
-  assets          Asset[]
-  assetOperations AssetOperation[]
-  scoreQuestions  ScoreQuestion[]
-  scoreAnswers    ScoreAnswer[]
+  categories        Category[]
+  tags              Tag[]
+  bankAccounts      BankAccount[]
+  transactions      Transaction[]
+  assets            Asset[]
+  assetOperations   AssetOperation[]
+  scoreQuestions    ScoreQuestion[]
+  scoreAnswers      ScoreAnswer[]
+  allocationTargets AllocationTarget[]
 
   @@map("users")
 }
@@ -303,4 +304,26 @@ model ScoreAnswer {
   @@unique([assetId, questionId])
   @@index([userId, assetId])
   @@map("score_answers")
+}
+
+// The share of the portfolio the user WANTS in each asset type. This is the
+// investments counterpart of Category.targetPercent (the 6-jars plan): one
+// whole-number percentage per type, ideally summing to 100.
+//
+// The contribution planner uses it as the first split: it compares each type's
+// target against what the portfolio actually holds and sends the new money to
+// whichever type is furthest BELOW its target, so an aporte rebalances the
+// portfolio on its own and never has to suggest a sale (ADR-009).
+model AllocationTarget {
+  id            String    @id @default(cuid())
+  type          AssetType
+  targetPercent Int       @default(0) @map("target_percent")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One row per type per user. A type with no row yet simply means 0% — the
+  // editor upserts, so the table fills in as the user sets their plan.
+  @@unique([userId, type])
+  @@map("allocation_targets")
 }
