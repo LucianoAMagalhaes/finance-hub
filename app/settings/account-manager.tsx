@@ -25,7 +25,7 @@ export type AccountRow = {
 const DEFAULT_COLOR = '#6b7280'
 
 const field =
-  'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+  'w-full rounded-md border border-cofre-border px-3 py-2 text-sm focus:border-cofre-jade focus:outline-none'
 
 export function AccountManager({ items }: { items: AccountRow[] }) {
   const router = useRouter()
@@ -73,10 +73,10 @@ export function AccountManager({ items }: { items: AccountRow[] }) {
       {/* Add form */}
       <form
         onSubmit={handleAdd}
-        className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-800 bg-gray-800 p-3"
+        className="flex flex-wrap items-end gap-2 rounded-lg border border-cofre-border bg-cofre-panel p-3"
       >
         <div className="min-w-[8rem] flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-300">Nome</label>
+          <label className="mb-1 block text-xs font-medium text-cofre-muted">Nome</label>
           <input
             className={field}
             value={name}
@@ -85,7 +85,7 @@ export function AccountManager({ items }: { items: AccountRow[] }) {
           />
         </div>
         <div className="w-36">
-          <label className="mb-1 block text-xs font-medium text-gray-300">
+          <label className="mb-1 block text-xs font-medium text-cofre-muted">
             Saldo inicial
           </label>
           <input
@@ -97,10 +97,10 @@ export function AccountManager({ items }: { items: AccountRow[] }) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-300">Cor</label>
+          <label className="mb-1 block text-xs font-medium text-cofre-muted">Cor</label>
           <input
             type="color"
-            className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
+            className="h-[38px] w-12 cursor-pointer rounded-md border border-cofre-border"
             value={color}
             onChange={(e) => setColor(e.target.value)}
           />
@@ -108,21 +108,21 @@ export function AccountManager({ items }: { items: AccountRow[] }) {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90 disabled:opacity-50"
         >
           Adicionar
         </button>
       </form>
 
       {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="rounded-md bg-cofre-reddim px-3 py-2 text-sm text-cofre-red">{error}</p>
       )}
 
       {/* List */}
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">Nenhuma conta cadastrada.</p>
+        <p className="text-sm text-cofre-muted">Nenhuma conta cadastrada.</p>
       ) : (
-        <ul className="divide-y divide-gray-800 rounded-lg border border-gray-800">
+        <ul className="divide-y divide-cofre-border rounded-lg border border-cofre-border">
           {items.map((item) => (
             <Row key={item.id} item={item} />
           ))}
@@ -197,7 +197,7 @@ function Row({ item }: { item: AccountRow }) {
         />
         <input
           type="color"
-          className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
+          className="h-[38px] w-12 cursor-pointer rounded-md border border-cofre-border"
           value={color}
           onChange={(e) => setColor(e.target.value)}
         />
@@ -205,7 +205,7 @@ function Row({ item }: { item: AccountRow }) {
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-md bg-cofre-jade px-3 py-2 text-sm font-semibold text-[#0B1410] hover:opacity-90 disabled:opacity-50"
         >
           Salvar
         </button>
@@ -219,11 +219,11 @@ function Row({ item }: { item: AccountRow }) {
             setEditing(false)
           }}
           disabled={isPending}
-          className="rounded-md border border-gray-700 px-3 py-2 text-sm font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md border border-cofre-border px-3 py-2 text-sm font-medium text-cofre-text hover:bg-cofre-panel disabled:opacity-50"
         >
           Cancelar
         </button>
-        {error && <span className="w-full text-xs text-red-500">{error}</span>}
+        {error && <span className="w-full text-xs text-cofre-red">{error}</span>}
       </li>
     )
   }
@@ -235,15 +235,15 @@ function Row({ item }: { item: AccountRow }) {
         style={{ backgroundColor: item.color }}
         aria-hidden
       />
-      <span className="flex-1 text-sm font-medium text-gray-100">{item.name}</span>
-      <span className="text-xs text-gray-400">
+      <span className="flex-1 text-sm font-medium text-cofre-text">{item.name}</span>
+      <span className="text-xs text-cofre-muted">
         Saldo inicial: {formatBRL(item.initialBalance)}
       </span>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="text-xs font-medium text-gray-400 hover:text-white"
+          className="text-xs font-medium text-cofre-muted hover:text-cofre-text"
         >
           Editar
         </button>
@@ -251,12 +251,12 @@ function Row({ item }: { item: AccountRow }) {
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="text-xs font-medium text-red-500 hover:text-red-300 disabled:opacity-50"
+          className="text-xs font-medium text-cofre-red hover:opacity-80 disabled:opacity-50"
         >
           {isPending ? 'Excluindo…' : 'Excluir'}
         </button>
       </div>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="text-xs text-cofre-red">{error}</span>}
     </li>
   )
 }

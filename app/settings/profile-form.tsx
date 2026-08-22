@@ -50,8 +50,8 @@ export function ProfileForm({
   }
 
   const field =
-    'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
-  const label = 'mb-1 block text-sm font-medium text-gray-200'
+    'w-full rounded-md border border-cofre-border px-3 py-2 text-sm focus:border-cofre-jade focus:outline-none'
+  const label = 'mb-1 block text-sm font-medium text-cofre-text'
 
   return (
     <form onSubmit={handleSubmit} className="max-w-md space-y-4">
@@ -81,10 +81,10 @@ export function ProfileForm({
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="rounded-md bg-cofre-reddim px-3 py-2 text-sm text-cofre-red">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
+        <p className="rounded-md bg-cofre-jadedim px-3 py-2 text-sm text-cofre-jade">
           Perfil salvo!
         </p>
       )}
@@ -92,7 +92,7 @@ export function ProfileForm({
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+        className="rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90 disabled:opacity-50"
       >
         {isPending ? 'Salvando…' : 'Salvar perfil'}
       </button>

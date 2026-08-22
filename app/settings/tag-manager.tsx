@@ -22,7 +22,7 @@ export type TagRow = {
 const DEFAULT_COLOR = '#6b7280'
 
 const field =
-  'w-full rounded-md border border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+  'w-full rounded-md border border-cofre-border px-3 py-2 text-sm focus:border-cofre-jade focus:outline-none'
 
 export function TagManager({ items }: { items: TagRow[] }) {
   const router = useRouter()
@@ -58,10 +58,10 @@ export function TagManager({ items }: { items: TagRow[] }) {
     <div className="space-y-4">
       <form
         onSubmit={handleAdd}
-        className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-800 bg-gray-800 p-3"
+        className="flex flex-wrap items-end gap-2 rounded-lg border border-cofre-border bg-cofre-panel p-3"
       >
         <div className="min-w-[8rem] flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-300">Nome</label>
+          <label className="mb-1 block text-xs font-medium text-cofre-muted">Nome</label>
           <input
             className={field}
             value={name}
@@ -70,10 +70,10 @@ export function TagManager({ items }: { items: TagRow[] }) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-300">Cor</label>
+          <label className="mb-1 block text-xs font-medium text-cofre-muted">Cor</label>
           <input
             type="color"
-            className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
+            className="h-[38px] w-12 cursor-pointer rounded-md border border-cofre-border"
             value={color}
             onChange={(e) => setColor(e.target.value)}
           />
@@ -81,18 +81,18 @@ export function TagManager({ items }: { items: TagRow[] }) {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90 disabled:opacity-50"
         >
           Adicionar
         </button>
       </form>
 
       {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="rounded-md bg-cofre-reddim px-3 py-2 text-sm text-cofre-red">{error}</p>
       )}
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">Nenhum marcador cadastrado.</p>
+        <p className="text-sm text-cofre-muted">Nenhum marcador cadastrado.</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {items.map((item) => (
@@ -148,7 +148,7 @@ function TagChip({ item }: { item: TagRow }) {
 
   if (editing) {
     return (
-      <li className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-gray-800 p-3">
+      <li className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-cofre-border p-3">
         <input
           className={`${field} min-w-[8rem] flex-1`}
           value={name}
@@ -156,7 +156,7 @@ function TagChip({ item }: { item: TagRow }) {
         />
         <input
           type="color"
-          className="h-[38px] w-12 cursor-pointer rounded-md border border-gray-700"
+          className="h-[38px] w-12 cursor-pointer rounded-md border border-cofre-border"
           value={color}
           onChange={(e) => setColor(e.target.value)}
         />
@@ -164,7 +164,7 @@ function TagChip({ item }: { item: TagRow }) {
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-md bg-cofre-jade px-3 py-2 text-sm font-semibold text-[#0B1410] hover:opacity-90 disabled:opacity-50"
         >
           Salvar
         </button>
@@ -177,11 +177,11 @@ function TagChip({ item }: { item: TagRow }) {
             setEditing(false)
           }}
           disabled={isPending}
-          className="rounded-md border border-gray-700 px-3 py-2 text-sm font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md border border-cofre-border px-3 py-2 text-sm font-medium text-cofre-text hover:bg-cofre-panel disabled:opacity-50"
         >
           Cancelar
         </button>
-        {error && <span className="w-full text-xs text-red-500">{error}</span>}
+        {error && <span className="w-full text-xs text-cofre-red">{error}</span>}
       </li>
     )
   }
@@ -197,11 +197,11 @@ function TagChip({ item }: { item: TagRow }) {
           style={{ backgroundColor: item.color }}
           aria-hidden
         />
-        <span className="font-medium text-gray-100">{item.name}</span>
+        <span className="font-medium text-cofre-text">{item.name}</span>
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="ml-1 text-xs text-gray-400 hover:text-white"
+          className="ml-1 text-xs text-cofre-muted hover:text-cofre-text"
         >
           editar
         </button>
@@ -209,12 +209,12 @@ function TagChip({ item }: { item: TagRow }) {
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="text-xs text-red-500 hover:text-red-300 disabled:opacity-50"
+          className="text-xs text-cofre-red hover:opacity-80 disabled:opacity-50"
         >
           {isPending ? '…' : 'excluir'}
         </button>
       </div>
-      {error && <span className="mt-1 text-xs text-red-500">{error}</span>}
+      {error && <span className="mt-1 text-xs text-cofre-red">{error}</span>}
     </li>
   )
 }

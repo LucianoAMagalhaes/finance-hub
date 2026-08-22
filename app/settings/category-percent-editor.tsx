@@ -68,7 +68,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
 
   if (items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-gray-700 p-8 text-center text-sm text-gray-400">
+      <p className="rounded-lg border border-dashed border-cofre-border p-8 text-center text-sm text-cofre-muted">
         Nenhuma categoria de despesa. Crie potes de despesa acima primeiro.
       </p>
     )
@@ -76,7 +76,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
 
   return (
     <div className="space-y-4">
-      <ul className="divide-y divide-gray-800 rounded-lg border border-gray-800">
+      <ul className="divide-y divide-cofre-border rounded-lg border border-cofre-border">
         {items.map((c) => {
           const value = percents[c.id] ?? 0
           return (
@@ -88,7 +88,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
               >
                 {c.icon}
               </span>
-              <span className="flex-1 text-sm font-medium text-gray-100">{c.name}</span>
+              <span className="flex-1 text-sm font-medium text-cofre-text">{c.name}</span>
 
               {/* A slider for quick adjustment, mirrored by a number input. */}
               <input
@@ -97,7 +97,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
                 max={100}
                 value={value}
                 onChange={(e) => setPercent(c.id, e.target.value)}
-                className="hidden w-40 accent-blue-500 sm:block"
+                className="hidden w-40 accent-cofre-jade sm:block"
                 aria-label={`Percentual de ${c.name}`}
               />
               <div className="flex items-center gap-1">
@@ -107,9 +107,9 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
                   max={100}
                   value={value}
                   onChange={(e) => setPercent(c.id, e.target.value)}
-                  className="w-16 rounded-md border border-gray-700 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-16 rounded-md border border-cofre-border px-2 py-1 text-right text-sm focus:border-cofre-jade focus:outline-none"
                 />
-                <span className="text-sm text-gray-400">%</span>
+                <span className="text-sm text-cofre-muted">%</span>
               </div>
             </li>
           )
@@ -117,18 +117,18 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
       </ul>
 
       {/* Live total — green when it reaches exactly 100%, amber otherwise. */}
-      <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3 text-sm">
-        <span className="text-gray-300">Total alocado</span>
-        <span className={`font-semibold ${balanced ? 'text-green-400' : 'text-amber-400'}`}>
+      <div className="flex items-center justify-between rounded-lg border border-cofre-border px-4 py-3 text-sm">
+        <span className="text-cofre-muted">Total alocado</span>
+        <span className={`font-semibold ${balanced ? 'text-cofre-jade' : 'text-cofre-amber'}`}>
           {total}%{balanced ? '' : total > 100 ? ' (acima de 100%)' : ' (abaixo de 100%)'}
         </span>
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+        <p className="rounded-md bg-cofre-reddim px-3 py-2 text-sm text-cofre-red">{error}</p>
       )}
       {success && (
-        <p className="rounded-md bg-green-950 px-3 py-2 text-sm text-green-300">
+        <p className="rounded-md bg-cofre-jadedim px-3 py-2 text-sm text-cofre-jade">
           Metas salvas!
         </p>
       )}
@@ -137,7 +137,7 @@ export function CategoryPercentEditor({ items }: { items: PercentRow[] }) {
         type="button"
         onClick={handleSave}
         disabled={isPending}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+        className="rounded-md bg-cofre-jade px-4 py-2 text-sm font-semibold text-[#0B1410] transition hover:opacity-90 disabled:opacity-50"
       >
         {isPending ? 'Salvando…' : 'Salvar metas'}
       </button>
