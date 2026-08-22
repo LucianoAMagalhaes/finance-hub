@@ -8,7 +8,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-08-21
+**Atualizado em:** 2026-08-22
 
 ### Redesenho do modelo (concluído) — método dos 6 potes com percentuais
 
@@ -279,6 +279,58 @@ as telas são desenhadas do zero, na paleta `cofre`.
   - **Gráfico de pizza "Alocação por tipo"** na própria Carteira
     (`allocation-chart.tsx`, Recharts), com **percentual e valor** de cada tipo
     na legenda. Usa `allocationByType`, que já existia.
+- ✅ **`feat/asset-scoring`** (PR #45) — **nota por ativo**. Ações e FIIs são
+  avaliados por um **checklist de perguntas sim/não** que o usuário escreve em
+  Configurações ("Checklist de avaliação"): cada "sim" soma 1, cada "não" tira 1
+  → nota de −N a +N para uma lista de N perguntas. Cripto e renda fixa não têm
+  checklist e recebem **nota digitada à mão** (`Asset.manualScore`), na mesma
+  escala. Modelos `ScoreQuestion` (com `scope` — `stocks` cobre `stock_br` e
+  `stock_intl`, `fiis` cobre `fii` — e `position`) e `ScoreAnswer`
+  (`@@unique([assetId, questionId])`); migration `add_asset_scoring`.
+  A nota é **derivada** por `lib/scoring.ts` e nunca gravada. Coluna **Nota** na
+  Carteira abre o modal de avaliação (`score-cell.tsx` + `score-sheet.tsx`).
+  - **Pergunta em branco é a AUSÊNCIA de uma linha de resposta**, diferente de
+    responder "não": em branco não custa nada, "não" custa um ponto. Só a
+    ausência total de respostas deixa o ativo **sem nota** — e ativo sem nota
+    não recebe sugestão de aporte.
+  - **As perguntas moram no banco, não em código**, porque o usuário ainda está
+    amadurecendo os próprios critérios. O seed oferece um conjunto inicial
+    **só quando a lista está vazia** — nunca edita nem ressuscita o que o
+    usuário mexeu (a regra que o seed de categorias aprendeu na prática).
+  - Excluir uma pergunta apaga as respostas dela (Cascade) e muda a nota de
+    quem a tinha respondido; a confirmação diz quantas respostas vão junto.
+- ✅ **`feat/allocation-targets`** (PR #46) — **meta de alocação por tipo**.
+  Modelo `AllocationTarget` (`@@unique([userId, type])`), migration
+  `add_allocation_targets`, e a seção **"Metas de alocação"** em Configurações
+  (molde do editor de potes, mas com `upsert` por `(userId, type)` porque os
+  tipos são um enum fixo cuja linha pode não existir). Cada linha mostra
+  **quanto a carteira tem hoje ao lado da meta**. A legenda do donut da Carteira
+  passa a trazer meta vs real, com **linha própria para um tipo planejado que a
+  carteira ainda não tem**. Plano fora de 100% é salvo de propósito: a UI avisa e
+  o rateio normaliza pelos pesos.
+- ✅ **`feat/contribution-planner`** (PR #47) — tela **Aportes**
+  (`/investments/contributions`): digita o valor, recebe onde colocar.
+  `lib/contribution.ts` (puro) faz o rateio em **dois níveis, com a mesma
+  primitiva `allocateByGap`**: cada item ganha um alvo proporcional ao seu peso
+  sobre o patrimônio **depois** do aporte, e o dinheiro vai para quem está mais
+  abaixo do próprio alvo.
+  - **Nível 1, entre os tipos:** o peso é a meta de alocação. Tipo já acima da
+    meta recebe **R$ 0** — o aporte reequilibra sozinho e **nunca sugere venda**.
+  - **Nível 2, entre os ativos do tipo:** o peso é a **nota**. Nota alta não
+    atrai dinheiro sozinha: um ótimo ativo já grande demais espera, e o dinheiro
+    vai para o ótimo que está pequeno.
+  - **Só nota positiva pesa.** Nota ≤ 0 ou sem nota fica na tela com o motivo
+    (`no-score` / `non-positive-score` / `on-target` / `below-minimum`), nunca
+    some da lista.
+  - **Aporte mínimo por ativo** (padrão R$ 100): corta as migalhas e redistribui
+    pelos sobreviventes. Sem isso, 15 ativos devolvem R$ 3,47 cada.
+  - Tipo planejado **sem ativo elegível** tem o valor **reservado** com aviso, e
+    **não** redistribuído — "R$ 516 vão para FII, escolha o papel" é resposta
+    útil; empurrar esse dinheiro para ações calado não seria.
+  - **Nenhuma Server Action**: a tela não grava nada, o cálculo roda no cliente a
+    cada tecla. Posições fechadas ficam de fora (a lacuna seria o alvo inteiro).
+  - Soma das sugestões bate com o aporte **ao centavo** (o resto do
+    arredondamento vai para a maior lacuna).
 - [ ] **`feat/portfolio-operations`** — vendas e edição/exclusão de uma operação
   (o cálculo de venda já está pronto e testado). O drill-down do histórico já
   saiu junto da carteira.
@@ -441,13 +493,19 @@ navegação/UX" acima).
    filtros/busca; criar via modal, editar em `/transactions/[id]/edit`. Toda
    transação tem **conta (obrigatória)**
 3. **Configurações** (`/settings`) — perfil, categorias, **"Metas dos potes"**
-   (percentual-alvo por pote), **"Contas bancárias"** e marcadores
+   (percentual-alvo por pote), **"Contas bancárias"**, marcadores, **"Metas de
+   alocação"** (percentual-alvo por tipo de ativo) e **"Checklist de avaliação"**
+   (as perguntas que dão a nota de cada ação e FII)
 4. **Carteira** (`/investments/portfolio`) — ativos com quantidade, preço médio,
    investido, cotação (manual, **editável na própria célula**), valor atual e
    resultado; **pizza de alocação por tipo** (percentual + valor); **seta no fim
    da linha** que expande as compras do ticker, cada uma editável/excluível;
    cadastro de **compra** via modal. `/investments` redireciona para cá enquanto
-   a Visão Geral não existe
+   a Visão Geral não existe. Tem também a coluna **Nota** (clique para avaliar)
+   e, na legenda do donut, **meta vs real** por tipo
+5. **Aportes** (`/investments/contributions`) — digita o valor do aporte e recebe
+   quanto colocar em cada ativo: primeiro divide entre os **tipos** abaixo da
+   meta, depois entre os **ativos** de nota positiva mais atrás da própria fatia
 
 > Sem login/cadastro: app local single-user (ver ADR-004).
 
@@ -491,6 +549,21 @@ asset_operations
   total_cents,  -- dinheiro que se moveu, inteiro em centavos
   date, notes?, created_at
   -- preço unitário NÃO é gravado: é derivado (total_cents / quantity)
+
+score_questions
+  id, user_id, scope (stocks|fiis), text, hint?, position, created_at
+  -- o checklist que o usuário escreve em Configurações
+
+score_answers
+  id, user_id, asset_id, question_id, value (bool), updated_at
+  -- unique (asset_id, question_id); LINHA AUSENTE = não respondida,
+  -- que é diferente de value=false ("não", que tira um ponto)
+  -- a NOTA não é gravada: é derivada por lib/scoring.ts
+
+allocation_targets
+  id, user_id, type, target_percent  -- unique (user_id, type)
+  -- quanto da carteira o usuário quer em cada tipo; o simulador de
+  -- aporte usa isso como o primeiro nível do rateio
 ```
 
 ---
