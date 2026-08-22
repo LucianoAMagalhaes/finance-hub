@@ -8,7 +8,7 @@ Aplicativo web de finanças pessoais desenvolvido em fases. O foco inicial é or
 
 ## Estado atual e próximos passos
 
-**Atualizado em:** 2026-07-09
+**Atualizado em:** 2026-08-21
 
 ### Redesenho do modelo (concluído) — método dos 6 potes com percentuais
 
@@ -113,6 +113,44 @@ Rodada seguinte de melhorias. **Uma branch por item**; todas mergeadas em `main`
   (`direct_debit`, migration `add_direct_debit_payment`) em `PAYMENT_METHODS` +
   labels + cores.
 
+### Redesign visual — design system "cofre" (concluída) — 2026-06-14
+
+Rodada de identidade visual. O ponto de partida foi um mockup trazido pelo
+desenvolvedor (`reference/HubFinanceiro.jsx`, ~1.400 linhas) com o layout do hub
+já desenhado; o pedido foi **imitar aquele layout**. **Uma branch por tela**;
+todas mergeadas em `main`. Decisão registrada no
+**[ADR-006](docs/adr/ADR-006-design-system-cofre.md)**.
+
+- ✅ **`feat/cofre-theme-sidebar`** (PR #34) — paleta **`cofre.*`** em
+  `tailwind.config.ts` (grafite `bg`/`panel`/`card`/`border` + `text`/`muted`/
+  `faint` + acentos `jade` (crescimento) / `amber` (alerta) / `red` (estouro),
+  cada acento com uma variante `dim` para fundos de banner). `app/globals.css`
+  passa a **tema escuro fixo** — sai o `prefers-color-scheme` (que num SO claro
+  deixava os campos ilegíveis), entram `color-scheme: dark` e um default de
+  fundo/cor para `input`/`select`/`textarea`. Instalado **`lucide-react`**.
+  Sidebar redesenhada (`components/sidebar.tsx`): logo "hubfinance", grupo
+  colapsável **"Orçamento Doméstico"** com ícones lucide e borda jade no item
+  ativo.
+- ✅ **`feat/dashboard-cofre-layout`** (PR #35) — dashboard no layout da
+  referência, em 4 linhas: cards no topo; **gráfico + tabela "Resumo por pote"**
+  (novo `components/dashboard/resumo-potes-table.tsx` — gasto, disponível,
+  % utilizado e share de cada pote —, que **substituiu**
+  `recent-transactions.tsx`, removido); orçamento por pote em **grade de 3
+  colunas** com drill-down; e as barras por marcador/pagamento **finas**
+  (`h-1.5`).
+- ✅ **`feat/transactions-cofre`** (PR #36) — tela **Transações** convertida
+  para a paleta. `components/money.tsx` passa a usar
+  `text-cofre-jade`/`text-cofre-red`, o que vale para o **app todo**.
+- ✅ **`style/settings-cofre`** (PR #41) — **Configurações** convertida, a última
+  tela na paleta antiga. Redesign concluído em todas as telas. 🎉
+
+**Regras que ficam:** toda cor de UI se escreve como **`*-cofre-*`** (nada de
+`gray-*`/`blue-*` do Tailwind padrão); cores vindas do **banco** (o `color` de
+categoria, marcador e conta) continuam como **inline style**, porque são dados,
+não tokens; e `reference/HubFinanceiro.jsx` fica versionado como **referência
+visual congelada** — nada o importa, ele não entra no build e não deve ser
+editado.
+
 ### Categoria de saldo transportado (concluída) — 2026-07-01
 
 - ✅ **`feat/carry-over-category`** (PR #38) — categoria dedicada **"Saldo
@@ -210,6 +248,10 @@ Cada funcionalidade em sua própria branch (`<tipo>/<descricao-kebab>`). Ir **po
 - **ORM:** Prisma
 - **Estilo:** Tailwind CSS
 - **Gráficos:** Recharts
+- **Ícones:** lucide-react
+- **Design system:** paleta própria **"cofre"** (tokens `cofre.*` em
+  `tailwind.config.ts`) em **tema escuro fixo** — ver
+  [ADR-006](docs/adr/ADR-006-design-system-cofre.md)
 - **Testes:** Vitest + Testing Library (unit e componente) — `npm test` / `npm run test:watch`
 - **Ambiente:** app roda local (`npm run dev`), banco isolado via Docker Compose
 
@@ -288,7 +330,8 @@ services:
 - **Orçamento do mês por pote** (limite derivado de `% × renda`) com
   **drill-down** das transações de cada pote — substitui o resumo de orçamentos
 - **Despesas por marcador** e **Despesas por forma de pagamento** (barras)
-- Últimas 5 transações
+- **Resumo por pote** (tabela: gasto, disponível, % utilizado e share de cada
+  pote) — substituiu o card de últimas 5 transações no redesign
 
 **Metas financeiras**
 - Criar meta com nome, valor alvo, prazo e valor atual
@@ -331,9 +374,9 @@ navegação/UX" acima).
 
 1. **Dashboard** (`/`) — filtro de mês/ano, card **"Total em conta"**, card
    **"Saldo real (sem crédito)"** (saldo do mês, exclui cartão de crédito),
-   resumo do mês, gráfico de 6 meses, **orçamento por pote com drill-down**,
-   **despesas por marcador** e **por forma de pagamento** (barras), e últimas 5
-   transações
+   resumo do mês, gráfico de 6 meses, tabela **"Resumo por pote"**,
+   **orçamento por pote com drill-down** e **despesas por marcador** e **por
+   forma de pagamento** (barras)
 2. **Transações** (`/transactions`) — tabela full-width (com coluna **Conta**) e
    filtros/busca; criar via modal, editar em `/transactions/[id]/edit`. Toda
    transação tem **conta (obrigatória)**
