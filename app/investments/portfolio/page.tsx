@@ -28,6 +28,7 @@ import {
 import { toTargetMap } from '@/lib/allocation'
 import { AllocationChart } from './allocation-chart'
 import { NewPurchaseButton } from './new-purchase-button'
+import { RefreshQuotesButton } from './refresh-quotes-button'
 import { PortfolioTable, type OperationRow, type PortfolioRow } from './portfolio-table'
 import type { ScoreSheetAsset } from './score-sheet'
 
@@ -177,7 +178,12 @@ export default async function PortfolioPage() {
             ticker.
           </p>
         </div>
-        <NewPurchaseButton />
+        {/* Refresh sits to the left of the primary action: it is the gesture
+            repeated most, but "Nova compra" is the one that creates data. */}
+        <div className="flex items-start gap-2">
+          <RefreshQuotesButton />
+          <NewPurchaseButton />
+        </div>
       </header>
 
       {rows.length > 0 && (

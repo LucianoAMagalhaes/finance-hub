@@ -15,3 +15,4 @@ Registros curtos das decisões técnicas relevantes do projeto. Cada ADR respond
 | [ADR-007](ADR-007-precisao-quantidade-e-cotacao.md) | Centavos inteiros para dinheiro; `Decimal` para quantidade e cotação | accepted |
 | [ADR-008](ADR-008-investimentos-modulo-separado.md) | Carteira manual, desacoplada do orçamento doméstico | accepted |
 | [ADR-009](ADR-009-nota-do-ativo-e-sugestao-de-aporte.md) | Nota do ativo por checklist e sugestão de aporte por lacuna | accepted |
+| [ADR-010](ADR-010-cotacoes-automaticas.md) | Cotações automáticas via Yahoo Finance, sob botão e só em reais | accepted |

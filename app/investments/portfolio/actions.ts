@@ -19,6 +19,14 @@ import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
 import { assetAnswersSchema, manualScoreSchema } from '@/lib/scoring-schema'
 import { scoreScopeFor } from '@/lib/scoring'
+import { fetchYahooQuotes, isYahooError } from '@/lib/yahoo'
+import {
+  brlQuoteToCents,
+  quoteProviderFor,
+  summarizeQuoteRun,
+  yahooSymbolFor,
+  type QuoteOutcome,
+} from '@/lib/quotes'
 import {
   assetSchema,
   purchaseEditSchema,
@@ -429,5 +437,116 @@ export async function setAssetManualScore(
   } catch (error) {
     console.error('setAssetManualScore failed:', error)
     return { ok: false, error: 'Não foi possível salvar a nota.' }
+  }
+}
+
+/**
+ * Result of a quote refresh. Richer than ActionResult on purpose: the button
+ * has to report what happened ticker by ticker, not just "deu certo".
+ */
+export type RefreshQuotesResult =
+  | { ok: true; summary: string; updated: number }
+  | { ok: false; error: string }
+
+/**
+ * Fetches the current price of every automatically-quotable asset and stores it.
+ *
+ * Only the types that have a provider are touched (lib/quotes.quoteProviderFor):
+ * today that is everything trading on the B3 — shares, FIIs, Brazilian ETFs and
+ * BDRs — through Yahoo Finance. Crypto, Tesouro and shares bought abroad are
+ * left exactly as they are, because they do not trade in reais and this column
+ * has no currency beside it (ADR-010); their quote stays hand-typed in the
+ * table cell.
+ *
+ * Three rules worth remembering:
+ *   1. A ticker the provider could not price KEEPS its stored quote. Erasing it
+ *      would make the portfolio read as worth less than it is.
+ *   2. A price that came back identical is NOT written, so `priceUpdatedAt`
+ *      keeps meaning "this price is from then" — the same rule nextPriceStamp
+ *      applies to the hand-typed cell.
+ *   3. All the writes go in one prisma.$transaction: a refresh either lands or
+ *      it doesn't, so the table never shows half a run.
+ */
+export async function refreshQuotes(): Promise<RefreshQuotesResult> {
+  try {
+    const user = await getLocalUser()
+
+    const assets = await prisma.asset.findMany({
+      where: { userId: user.id },
+      select: { id: true, ticker: true, type: true, currentPriceCents: true },
+    })
+
+    const quotable = assets.filter((asset) => quoteProviderFor(asset.type) !== null)
+    if (quotable.length === 0) {
+      return { ok: true, summary: summarizeQuoteRun([]), updated: 0 }
+    }
+
+    // The bare ticker is what the user typed and what the table shows; Yahoo
+    // addresses the same asset with an exchange suffix. The mapping between the
+    // two lives in lib/quotes, so this action never concatenates a symbol.
+    const symbols = new Map(
+      quotable.map((asset) => [asset.id, yahooSymbolFor(asset.ticker, asset.type)!]),
+    )
+
+    // Throws YahooError when the whole run cannot proceed (rate limited, no
+    // network); a single unknown symbol just comes back null.
+    const quotes = await fetchYahooQuotes(Array.from(symbols.values()))
+
+    const outcomes: QuoteOutcome[] = []
+    const writes = []
+    const stampedAt = new Date()
+
+    for (const asset of quotable) {
+      // brlQuoteToCents also REFUSES a quote that came back in another currency,
+      // which is what keeps a dollar price out of a column that means reais.
+      const priceCents = brlQuoteToCents(quotes.get(symbols.get(asset.id)!) ?? null)
+
+      // Nothing usable came back for this one: keep what is stored, report it.
+      if (priceCents === null) {
+        outcomes.push({ ticker: asset.ticker, status: 'missing' })
+        continue
+      }
+
+      // The API's answer goes through the SAME schema as a hand-typed quote —
+      // there is one definition of a valid price, and this is it.
+      const parsed = quoteSchema.safeParse({ currentPriceCents: priceCents })
+      if (!parsed.success) {
+        outcomes.push({ ticker: asset.ticker, status: 'missing' })
+        continue
+      }
+
+      // Prisma hands Decimal columns back as Decimal.js objects; Number() at the
+      // boundary, exactly like the portfolio page does.
+      const stored =
+        asset.currentPriceCents === null ? null : Number(asset.currentPriceCents)
+
+      if (stored === priceCents) {
+        outcomes.push({ ticker: asset.ticker, status: 'unchanged' })
+        continue
+      }
+
+      writes.push(
+        prisma.asset.updateMany({
+          where: { id: asset.id, userId: user.id },
+          data: { currentPriceCents: priceCents, priceUpdatedAt: stampedAt },
+        }),
+      )
+      outcomes.push({ ticker: asset.ticker, status: 'updated', priceCents })
+    }
+
+    if (writes.length > 0) await prisma.$transaction(writes)
+
+    revalidatePath('/investments/portfolio')
+    // The contribution planner measures each gap against the current price, so
+    // it is stale the moment the quotes move.
+    revalidatePath('/investments/contributions')
+
+    return { ok: true, summary: summarizeQuoteRun(outcomes), updated: writes.length }
+  } catch (error) {
+    // A YahooError already carries a finished sentence for the user (connection
+    // failed, limit hit); anything else is a bug and stays in the log.
+    if (isYahooError(error)) return { ok: false, error: error.message }
+    console.error('refreshQuotes failed:', error)
+    return { ok: false, error: 'Não foi possível atualizar as cotações.' }
   }
 }
