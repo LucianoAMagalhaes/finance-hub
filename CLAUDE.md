@@ -331,11 +331,40 @@ as telas são desenhadas do zero, na paleta `cofre`.
     cada tecla. Posições fechadas ficam de fora (a lacuna seria o alvo inteiro).
   - Soma das sugestões bate com o aporte **ao centavo** (o resto do
     arredondamento vai para a maior lacuna).
-- [ ] **`feat/portfolio-operations`** — vendas e edição/exclusão de uma operação
-  (o cálculo de venda já está pronto e testado). O drill-down do histórico já
-  saiu junto da carteira.
-- [ ] **`feat/investments-overview`** — tela Visão Geral: cards consolidados
-  (o donut de alocação já saiu junto da Carteira).
+
+#### Duas features previstas foram cortadas — 2026-08-22
+
+Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de
+pendências por engano:
+
+- ❌ **`feat/portfolio-operations`** (vendas) — **cortada.** O cálculo de venda
+  pelo custo médio continua pronto e testado em `lib/portfolio.ts` (retira a
+  fatia proporcional do custo, preserva o preço médio dos remanescentes, apura
+  `realizedProfitCents` e fecha a posição), e `assetOperationInputSchema` aceita
+  `buy | sell` — mas **nenhum caminho da interface cria uma venda**. Consequência
+  a ter em mente: hoje a carteira só sabe **acumular**; desfazer uma posição
+  passa por excluir a compra, o que reescreve o histórico. Se um dia isso
+  incomodar, o que falta é só a camada de tela (form/action de venda, rótulos do
+  painel expandido, exibição do lucro realizado e o guard de não vender mais do
+  que se tem).
+- ❌ **`feat/investments-overview`** (tela Visão Geral) — **cortada por já estar
+  entregue.** O conteúdo que ela teria — cards consolidados de investido / valor
+  atual / resultado e o donut de alocação por tipo — saiu junto da **Carteira**.
+  Uma tela separada só repetiria o que já está lá. `/investments` segue
+  redirecionando para `/investments/portfolio`.
+
+#### O que ainda falta na Fase 2
+
+A Fase 2 **continua aberta**. Da lista de "Funcionalidades planejadas" abaixo,
+seguem por fazer:
+
+- **Cotações automáticas** via brapi.dev (B3) e CoinGecko (cripto) — hoje a
+  cotação é digitada à mão na própria célula da tabela. Isso também melhora o
+  simulador de aporte, que depende de cotação atual para calcular a lacuna
+  (`isPriceStale` já marca as cotações velhas).
+- **Câmbio** (AwesomeAPI) e **indicadores macro** (Banco Central / SGS).
+- **Dividendos recebidos** — exigiria um terceiro valor em `AssetOperationType`
+  (`ALTER TYPE ... ADD VALUE`) ou um modelo próprio.
 
 **Nomes:** o modelo de operações se chama **`AssetOperation`** (tabela
 `asset_operations`), não `AssetTransaction` — "transaction" já é o modelo do
@@ -500,9 +529,9 @@ navegação/UX" acima).
    investido, cotação (manual, **editável na própria célula**), valor atual e
    resultado; **pizza de alocação por tipo** (percentual + valor); **seta no fim
    da linha** que expande as compras do ticker, cada uma editável/excluível;
-   cadastro de **compra** via modal. `/investments` redireciona para cá enquanto
-   a Visão Geral não existe. Tem também a coluna **Nota** (clique para avaliar)
-   e, na legenda do donut, **meta vs real** por tipo
+   cadastro de **compra** via modal; coluna **Nota** (clique para avaliar) e, na
+   legenda do donut, **meta vs real** por tipo. `/investments` redireciona para
+   cá — a tela "Visão Geral" foi cortada porque esta já mostra o que ela teria
 5. **Aportes** (`/investments/contributions`) — digita o valor do aporte e recebe
    quanto colocar em cada ativo: primeiro divide entre os **tipos** abaixo da
    meta, depois entre os **ativos** de nota positiva mais atrás da própria fatia
