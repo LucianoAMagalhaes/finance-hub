@@ -332,6 +332,45 @@ as telas são desenhadas do zero, na paleta `cofre`.
   - Soma das sugestões bate com o aporte **ao centavo** (o resto do
     arredondamento vai para a maior lacuna).
 
+- ✅ **`feat/auto-quotes`** (PR #49) — **cotações automáticas da B3**. Botão
+  **"Atualizar cotações"** no topo da Carteira busca de uma vez o preço de tudo
+  que é negociado em real e grava. Fonte: **Yahoo Finance**, endpoint de gráfico
+  — **sem chave, sem cadastro, sem custo**. Decisão registrada no
+  **[ADR-010](docs/adr/ADR-010-cotacoes-automaticas.md)**; a pergunta que a
+  abriu ("dá para usar a API do Google Finance?") tem resposta curta: **não
+  existe** desde 2012, o que se vende com esse nome é scraping de terceiros.
+  - **A linha de corte é a MOEDA, não a cobertura.** O Yahoo cota AAPL, VOO e
+    BTC também, mas **em dólar** — e `currentPriceCents` são centavos de real
+    sem coluna de moeda ao lado. Então busca-se só o que já vem em real, que na
+    prática é **tudo da B3**: ações, FIIs, **ETFs brasileiros** (BOVA11, IVVB11)
+    e **BDRs** (AAPL34), todos verificados ao vivo — e sem precisar de tipo novo,
+    porque ETF e BDR já entram como `stock_br`. Cripto, ação listada fora e
+    Tesouro **seguem manuais**.
+  - **Trava de moeda:** `brlQuoteToCents` **recusa** cotação que não venha em
+    `BRL`. Sem ela, um sufixo errado gravaria dólar numa coluna que significa
+    real, calado. (Cuidado futuro: Londres cota em **GBp**, pence.)
+  - **Duas camadas.** `lib/quotes.ts` é **puro e testado** (`quoteProviderFor`
+    mapeia tipo → provedor com `switch` exaustivo; `yahooSymbolFor` põe o sufixo
+    `.SA`, mantendo o ticker limpo no banco; `realsToCents` converte em 6 casas,
+    matando o lixo de float; `summarizeQuoteRun` escreve a frase do botão).
+    `lib/yahoo.ts` é a **única** parte do app que fala com a rede.
+  - **O endpoint estrangula rajada.** 12 tickers quatro-a-quatro deram `429` no
+    teste; o cliente usa **2 conexões** e **repete uma vez** após pausa. O
+    `User-Agent` é obrigatório (o padrão do curl é recusado), mas é um
+    identificador honesto — fingir ser Chrome sem o TLS do Chrome é o que a
+    checagem anti-bot procura.
+  - **Ticker sem retorno mantém a cotação anterior** e aparece nomeado no resumo
+    ("2 sem retorno (XPML11, TGAR11)") — apagar faria a carteira ler como se
+    valesse menos do que vale. **Preço igual não é gravado**, então
+    `priceUpdatedAt` continua significando "este preço é de tal dia" (a mesma
+    regra que `nextPriceStamp` já aplicava à célula manual).
+  - **Erro é uma frase pronta em português** abaixo do botão (`YahooError`);
+    nenhuma falha altera dado.
+  - **Plano B registrado:** a **brapi.dev** chegou a ser implementada inteira
+    antes desta decisão (oficial, brasileira, gratuita) e perdeu por exigir conta
+    e token, atrasar 30 min e cobrir só a B3. Se o Yahoo quebrar, é para lá que
+    se volta — custa reescrever um arquivo.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de
@@ -358,11 +397,14 @@ pendências por engano:
 A Fase 2 **continua aberta**. Da lista de "Funcionalidades planejadas" abaixo,
 seguem por fazer:
 
-- **Cotações automáticas** via brapi.dev (B3) e CoinGecko (cripto) — hoje a
-  cotação é digitada à mão na própria célula da tabela. Isso também melhora o
-  simulador de aporte, que depende de cotação atual para calcular a lacuna
-  (`isPriceStale` já marca as cotações velhas).
-- **Câmbio** (AwesomeAPI) e **indicadores macro** (Banco Central / SGS).
+- **Cotação do que não é negociado em real** — cripto e ação listada fora. A
+  fonte **não** é o problema (o Yahoo cota `BTC-USD`, `AAPL`, `VOO`); o problema
+  é que `currentPriceCents` são centavos de real sem moeda ao lado. Ou se
+  converte pelo câmbio (`USDBRL=X`, que o Yahoo dá de graça), ou se guarda a
+  moeda no `Asset` e converte só na exibição. `quoteProviderFor` é o ponto de
+  entrada dos dois caminhos.
+- **Câmbio** (AwesomeAPI, ou `USDBRL=X` no mesmo cliente Yahoo) e **indicadores
+  macro** (Banco Central / SGS).
 - **Dividendos recebidos** — exigiria um terceiro valor em `AssetOperationType`
   (`ALTER TYPE ... ADD VALUE`) ou um modelo próprio.
 
@@ -526,8 +568,9 @@ navegação/UX" acima).
    alocação"** (percentual-alvo por tipo de ativo) e **"Checklist de avaliação"**
    (as perguntas que dão a nota de cada ação e FII)
 4. **Carteira** (`/investments/portfolio`) — ativos com quantidade, preço médio,
-   investido, cotação (manual, **editável na própria célula**), valor atual e
-   resultado; **pizza de alocação por tipo** (percentual + valor); **seta no fim
+   investido, cotação (botão **"Atualizar cotações"** busca no Yahoo tudo que é
+   negociado na B3; cripto, ação de fora e Tesouro seguem **editáveis na própria
+   célula**), valor atual e resultado; **pizza de alocação por tipo** (percentual + valor); **seta no fim
    da linha** que expande as compras do ticker, cada uma editável/excluível;
    cadastro de **compra** via modal; coluna **Nota** (clique para avaliar) e, na
    legenda do donut, **meta vs real** por tipo. `/investments` redireciona para
@@ -548,7 +591,8 @@ navegação/UX" acima).
 
 - Cadastro manual de compras (Ação Nacional, Ação Internacional, FII, Cripto,
   Renda Fixa)
-- Cotações automáticas via **brapi.dev** (B3) e **CoinGecko** (cripto)
+- Cotações automáticas via **Yahoo Finance** (B3 — feito em `feat/auto-quotes`;
+  ver [ADR-010](docs/adr/ADR-010-cotacoes-automaticas.md))
 - Câmbio via **AwesomeAPI** e indicadores macro via **API Banco Central (SGS)**
 - Rentabilidade por ativo e total da carteira
 - Histórico de aportes por ativo
@@ -679,11 +723,11 @@ Padrão: `<tipo>/<descricao-em-kebab-case>`
 ```env
 # Database
 DATABASE_URL="postgresql://finra:finra@localhost:5432/finra"
-
-# Phase 2 — market data APIs
-BRAPI_TOKEN=           # brapi.dev — B3 quotes
-COINGECKO_API_KEY=     # CoinGecko Demo (free tier)
 ```
+
+**Só isso.** Não há chave de API no projeto: as cotações vêm do Yahoo Finance,
+que não pede cadastro ([ADR-010](docs/adr/ADR-010-cotacoes-automaticas.md)). Se
+um dia for preciso cair para o plano B (brapi.dev), volta um `BRAPI_TOKEN` aqui.
 
 ---
 
