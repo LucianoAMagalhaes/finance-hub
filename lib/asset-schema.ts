@@ -10,7 +10,12 @@
 // cents per unit and MAY be fractional.
 
 import { z } from 'zod'
-import { ASSET_TYPES, ASSET_OPERATION_TYPES } from '@/lib/constants'
+import {
+  ASSET_TYPES,
+  ASSET_OPERATION_TYPES,
+  TREASURY_KINDS,
+  type AssetType,
+} from '@/lib/constants'
 
 // Quantities are stored as DECIMAL(24,8); anything finer would be silently
 // truncated by the database, so we reject it up front instead.
@@ -35,8 +40,9 @@ const currentPriceCents = z
 
 export const quoteSchema = z.object({ currentPriceCents })
 
-// The ticker: the identity of a portfolio line. Uppercased here so "petr4" and
-// "PETR4" are the same asset for the unique index.
+// The ticker of a MARKET asset: the identity of a portfolio line the user types
+// by hand. Uppercased here so "petr4" and "PETR4" are the same asset for the
+// unique index.
 const ticker = z
   .string()
   .trim()
@@ -44,12 +50,44 @@ const ticker = z
   .min(1, 'Ticker é obrigatório')
   .max(12, 'Ticker muito longo')
 
+// Every type EXCEPT fixed income, derived from the full list so that adding an
+// asset type makes this list follow along instead of silently excluding it.
+// Fixed income is the odd one out: a Tesouro bond has no ticker to type, so its
+// branch of the schemas below asks for the bond and its maturity instead.
+const MARKET_ASSET_TYPES = ASSET_TYPES.filter(
+  (type): type is Exclude<AssetType, 'fixed_income'> => type !== 'fixed_income',
+)
+
+// What identifies a Tesouro Direto bond. NOT a free-text name: the pair below
+// IS the bond, and the name shown in the portfolio is generated from it by
+// treasuryTicker() in lib/treasury.ts. That is also what lets the daily price
+// file be matched exactly, which free text never could.
+const treasuryIdentity = {
+  treasuryKind: z.enum(TREASURY_KINDS, { error: 'Selecione o título do Tesouro' }),
+  maturityDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Vencimento inválido'),
+}
+
 // The identity of a portfolio line, plus the optional hand-typed quote.
-export const assetSchema = z.object({
-  ticker,
-  type: z.enum(ASSET_TYPES, { error: 'Selecione o tipo do ativo' }),
-  currentPriceCents,
-})
+//
+// A discriminated union on `type`, because the two kinds of asset are identified
+// by different things and neither set of fields makes sense for the other. It
+// also narrows in the Server Action: after parsing, TypeScript knows a
+// fixed_income branch HAS a treasuryKind and no ticker, so there is no optional
+// field to forget to check.
+export const assetSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('fixed_income'),
+    ...treasuryIdentity,
+    currentPriceCents,
+  }),
+  z.object({
+    type: z.enum(MARKET_ASSET_TYPES, { error: 'Selecione o tipo do ativo' }),
+    ticker,
+    currentPriceCents,
+  }),
+])
 
 // One buy or sell, with the money that actually moved. Kept for the operations
 // screen (sells, editing a past operation); the purchase form below uses its
@@ -97,11 +135,18 @@ const purchaseFields = {
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
 }
 
-export const purchaseSchema = z.object({
-  ticker,
-  type: z.enum(ASSET_TYPES, { error: 'Selecione o tipo do ativo' }),
-  ...purchaseFields,
-})
+export const purchaseSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('fixed_income'),
+    ...treasuryIdentity,
+    ...purchaseFields,
+  }),
+  z.object({
+    type: z.enum(MARKET_ASSET_TYPES, { error: 'Selecione o tipo do ativo' }),
+    ticker,
+    ...purchaseFields,
+  }),
+])
 
 // Editing one purchase: the ticker and the type belong to the asset, not to
 // this operation, so they are not editable here.

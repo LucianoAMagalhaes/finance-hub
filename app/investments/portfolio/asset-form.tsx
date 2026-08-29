@@ -15,17 +15,33 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ASSET_TYPES, ASSET_TYPE_LABELS, type AssetType } from '@/lib/constants'
+import {
+  ASSET_TYPES,
+  ASSET_TYPE_LABELS,
+  TREASURY_KINDS,
+  TREASURY_KIND_NAMES,
+  type AssetType,
+  type TreasuryKind,
+} from '@/lib/constants'
 import { formatPriceBRL, parsePriceToCents } from '@/lib/format'
 import { assetSchema } from '@/lib/asset-schema'
+import { treasuryTicker } from '@/lib/treasury'
 import { updateAsset } from './actions'
 
-// The asset being edited.
+// The asset being edited. The last two are set only on fixed income, where the
+// bond + maturity ARE the identity and the ticker is generated from them.
 export type EditingAsset = {
   id: string
   ticker: string
   type: AssetType
   currentPriceCents: number | null
+  treasuryKind: TreasuryKind | null
+  maturityDate: Date | null
+}
+
+// A stored maturity (UTC midnight) as the <input type="date"> wants it.
+function toDateInput(date: Date | null): string {
+  return date === null ? '' : date.toISOString().slice(0, 10)
 }
 
 export function AssetForm({
@@ -40,18 +56,30 @@ export function AssetForm({
 
   const [ticker, setTicker] = useState(editing.ticker)
   const [type, setType] = useState<AssetType>(editing.type)
+  const [treasuryKind, setTreasuryKind] = useState<TreasuryKind>(
+    editing.treasuryKind ?? 'selic',
+  )
+  const [maturityDate, setMaturityDate] = useState(toDateInput(editing.maturityDate))
   const [price, setPrice] = useState(
     editing.currentPriceCents != null ? formatPriceBRL(editing.currentPriceCents) : '',
   )
   const [error, setError] = useState<string | null>(null)
 
+  const isTreasury = type === 'fixed_income'
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
 
+    // Same union as the purchase form: each type is named by its own fields.
+    // Switching an asset INTO fixed income regenerates its name from the bond;
+    // switching it out clears the bond columns (handled in the Server Action).
+    const identity = isTreasury
+      ? { type, treasuryKind, maturityDate }
+      : { type, ticker }
+
     const parsed = assetSchema.safeParse({
-      ticker,
-      type,
+      ...identity,
       // An empty field means "no quote": the table then shows "sem cotação"
       // instead of pretending the position is worth R$ 0,00.
       currentPriceCents: price.trim() === '' ? null : parsePriceToCents(price),
@@ -81,19 +109,6 @@ export function AssetForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={label} htmlFor="editTicker">
-            Ticker
-          </label>
-          <input
-            id="editTicker"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            className={field}
-            autoComplete="off"
-          />
-        </div>
-
-        <div>
           <label className={label} htmlFor="editAssetType">
             Tipo
           </label>
@@ -110,7 +125,68 @@ export function AssetForm({
             ))}
           </select>
         </div>
+
+        {!isTreasury && (
+          <div>
+            <label className={label} htmlFor="editTicker">
+              Ticker
+            </label>
+            <input
+              id="editTicker"
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              className={field}
+              autoComplete="off"
+            />
+          </div>
+        )}
       </div>
+
+      {isTreasury && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label} htmlFor="editTreasuryKind">
+                Título
+              </label>
+              <select
+                id="editTreasuryKind"
+                value={treasuryKind}
+                onChange={(e) => setTreasuryKind(e.target.value as TreasuryKind)}
+                className={field}
+              >
+                {TREASURY_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {TREASURY_KIND_NAMES[kind]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={label} htmlFor="editMaturityDate">
+                Vencimento
+              </label>
+              <input
+                id="editMaturityDate"
+                type="date"
+                value={maturityDate}
+                onChange={(e) => setMaturityDate(e.target.value)}
+                className={field}
+              />
+            </div>
+          </div>
+
+          {maturityDate && (
+            <p className="text-xs text-cofre-muted">
+              Passa a se chamar{' '}
+              <span className="font-semibold text-cofre-text">
+                {treasuryTicker(treasuryKind, new Date(`${maturityDate}T00:00:00.000Z`))}
+              </span>
+            </p>
+          )}
+        </>
+      )}
 
       <div>
         <label className={label} htmlFor="editCurrentPrice">

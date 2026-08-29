@@ -371,6 +371,39 @@ as telas são desenhadas do zero, na paleta `cofre`.
     e token, atrasar 30 min e cobrir só a B3. Se o Yahoo quebrar, é para lá que
     se volta — custa reescrever um arquivo.
 
+### Renda fixa: identidade do título — 2026-08-29
+
+Rodada aberta a partir da pergunta "estamos calculando a rentabilidade das ações?".
+A conta de rentabilidade (`valor atual − investido`) já era a mesma que o Google
+Finanças mostra, e vale igual para renda fixa — o que faltava era **nomear o
+título** e **buscar o PU sozinho**. Plano em três branches; esta é a primeira.
+
+- ✅ **`feat/treasury-identity`** — um título do Tesouro deixa de ser texto livre.
+  Novo enum **`TreasuryKind`** (8 títulos) e colunas `treasuryKind` +
+  `maturityDate` em `Asset` (migration `add_treasury_identity`, só aditiva).
+  - **A identidade do título é o par `(tipo, vencimento)`**, e o nome exibido é
+    **gerado** por `treasuryTicker()` em `lib/treasury.ts` — nunca digitado. O
+    motivo é concreto: `ticker` era `max(12)` e uppercase, e "Tesouro Prefixado
+    com Juros Semestrais 2037" tem **43 caracteres**. A carteira real do
+    desenvolvedor tinha `SELIC 2031`, `PRE-FIX 2029` e `IPCA+ 2040` — abreviações
+    que não casam com fonte de dados nenhuma.
+  - **O sufixo do cupom faz parte do nome.** "Tesouro IPCA+ 2035" e "Tesouro
+    IPCA+ com Juros Semestrais 2035" são títulos diferentes com preços diferentes
+    (R$ 2.458,57 vs R$ 4.286,98 em 28/08/2026). Juntar os dois precificaria um
+    com a cotação do outro.
+  - `purchaseSchema` e `assetSchema` viraram **discriminated unions** por `type`:
+    o branch de renda fixa exige `treasuryKind` + `maturityDate` e **não aceita**
+    `ticker`; os demais seguem com o ticker digitado. Efeito colateral bom: o
+    limite de 12 caracteres deixou de alcançar o nome gerado, sem precisar
+    afrouxá-lo para o ticker de mercado.
+  - `assetIdentityFrom()` (em `actions.ts`) é o **único** lugar que traduz o par
+    em colunas. Trocar o tipo de um ativo para fora de renda fixa **zera**
+    `treasuryKind`/`maturityDate`, para um vencimento velho nunca sobreviver ao
+    título que o gerou.
+  - O formulário avisa quando o título escolhido **paga juros semestrais**: o app
+    não registra cupom recebido (mesma lacuna dos dividendos), então o resultado
+    desses títulos aparece **menor que o real**.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de

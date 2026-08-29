@@ -35,6 +35,8 @@ export default async function ContributionsPage() {
         type: true,
         currentPriceCents: true,
         priceUpdatedAt: true,
+        treasuryKind: true,
+        maturityDate: true,
         manualScore: true,
       },
       orderBy: { ticker: 'asc' },

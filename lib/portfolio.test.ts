@@ -21,6 +21,8 @@ const petr: AssetInfo = {
   type: 'stock_br',
   currentPriceCents: 4000,
   priceUpdatedAt: new Date('2026-08-20T00:00:00Z'),
+  treasuryKind: null,
+  maturityDate: null,
 }
 
 const buy = (quantity: number, totalCents: number, day: string): Operation => ({
@@ -121,6 +123,8 @@ describe('buildPosition', () => {
       type: 'crypto',
       currentPriceCents: 45000000,
       priceUpdatedAt: null,
+      treasuryKind: null,
+      maturityDate: null,
     }
     const p = buildPosition(btc, [buy(0.00123456, 50000, '2026-01-10')])
 

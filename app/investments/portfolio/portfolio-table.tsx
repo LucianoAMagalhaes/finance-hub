@@ -192,6 +192,8 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
                         ticker: row.ticker,
                         type: row.type,
                         currentPriceCents: row.currentPriceCents,
+                        treasuryKind: row.treasuryKind,
+                        maturityDate: row.maturityDate,
                       }}
                       operationCount={row.operationCount}
                     />

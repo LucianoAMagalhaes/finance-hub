@@ -111,3 +111,53 @@ export const SCORE_SCOPE_LABELS: Record<ScoreScope, string> = {
 // produces, so the "Nota" column means one thing across the whole table.
 export const MANUAL_SCORE_MIN = -10
 export const MANUAL_SCORE_MAX = 10
+
+// --- Phase 2 — Tesouro Direto -----------------------------------------------
+// Mirrors the TreasuryKind enum in prisma/schema.prisma. Only `fixed_income`
+// assets carry one; every other type leaves the column null.
+//
+// Order matters: it is the order of the dropdown in the purchase form.
+export const TREASURY_KINDS = [
+  'selic',
+  'prefixado',
+  'prefixado_semiannual',
+  'ipca',
+  'ipca_semiannual',
+  'igpm_semiannual',
+  'renda_mais',
+  'educa_mais',
+] as const
+export type TreasuryKind = (typeof TREASURY_KINDS)[number]
+
+// The OFFICIAL name of each bond, spelled exactly as the Tesouro spells it.
+//
+// One map, not two, on purpose: this same string is both what the user reads
+// (in the dropdown and in the generated asset name) and the key that finds the
+// bond's daily price in the Tesouro Transparente file. A second "display" map
+// would be free to drift away from the one the file is matched against, and a
+// silent mismatch there means a bond that never gets a quote.
+//
+// Note the pairs that differ only by the suffix — "Tesouro IPCA+ 2035" and
+// "Tesouro IPCA+ com Juros Semestrais 2035" are different bonds with different
+// prices — which is why the suffix is part of the name and not a footnote.
+export const TREASURY_KIND_NAMES: Record<TreasuryKind, string> = {
+  selic: 'Tesouro Selic',
+  prefixado: 'Tesouro Prefixado',
+  prefixado_semiannual: 'Tesouro Prefixado com Juros Semestrais',
+  ipca: 'Tesouro IPCA+',
+  ipca_semiannual: 'Tesouro IPCA+ com Juros Semestrais',
+  igpm_semiannual: 'Tesouro IGPM+ com Juros Semestrais',
+  renda_mais: 'Tesouro Renda+ Aposentadoria Extra',
+  educa_mais: 'Tesouro Educa+',
+}
+
+// The bonds that pay a coupon before maturity. The app does NOT track coupons
+// received (same gap as dividends on stocks), so a position in one of these
+// reads LOW: the cash already paid out is missing from it. The portfolio warns
+// on these rows instead of quietly showing a wrong number.
+export const TREASURY_KINDS_WITH_COUPONS: readonly TreasuryKind[] = [
+  'prefixado_semiannual',
+  'ipca_semiannual',
+  'igpm_semiannual',
+  'renda_mais',
+]
