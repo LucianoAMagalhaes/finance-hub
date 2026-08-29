@@ -404,6 +404,44 @@ título** e **buscar o PU sozinho**. Plano em três branches; esta é a primeira
     não registra cupom recebido (mesma lacuna dos dividendos), então o resultado
     desses títulos aparece **menor que o real**.
 
+- ✅ **`feat/treasury-quotes`** — o botão **"Atualizar cotações"** passa a
+  precificar também os títulos do Tesouro. Decisão registrada no
+  **[ADR-011](docs/adr/ADR-011-cotacoes-tesouro-direto.md)**.
+  - **Fonte:** o arquivo diário do **Tesouro Transparente** (dado aberto do
+    governo, portal CKAN) — sem chave, sem cadastro, sem limite, e **um request
+    traz todos os títulos**. O endpoint `treasurybondsinfo.json` do site oficial,
+    que seria mais direto, responde **410 Gone**; foi testado.
+  - **A viabilidade depende de cancelar o stream.** O arquivo é a série histórica
+    inteira, **13,8 MB**, mas vem **do mais recente para o mais antigo** e os 58
+    títulos da data mais nova cabem em ~4 KB. **`Range` não é honrado**
+    (`curl -r 0-600` baixou tudo) e não há `Content-Length`, então o cliente lê
+    **32 KB e desliga**: 40 KB em **178 ms**. A última linha vem truncada e o
+    parser descarta qualquer linha sem todos os campos.
+  - **Coluna `PU Venda`**, o preço de recompra — o que o investidor receberia.
+    Validado contra o extrato real: `1,10 × 2.458,57 = 2.704,43` vs `2.704,41` do
+    banco. `PU Compra` daria R$ 26 a mais.
+  - **Chave `(tipo, ano)`**, não a data exata: nenhum tipo repete ano, e assim um
+    dia de vencimento digitado de memória ainda casa. Empate na chave **descarta
+    os dois** — "sem retorno" é visível, precificar um com a cotação do outro
+    seria silencioso e errado.
+  - **O carimbo é a data do arquivo, não a hora do clique**, porque o preço é da
+    manhã do último dia útil. Detalhe que custou um bug: `formatRelativeDay`
+    compara **dias locais**, então gravar a Data Base como meia-noite UTC fazia um
+    preço de ontem ler **"há 2 dias"** em UTC−3. A Data Base virou um momento ao
+    **meio-dia local** — o único ponto do dia que sobrevive a qualquer fuso.
+  - **Queda de um provedor não derruba o outro** (`Promise.allSettled`): se o
+    Tesouro cair, as ações ainda atualizam e o resumo diz "Tesouro Direto
+    indisponível". Se **todos** falharem, volta a mensagem detalhada do provedor
+    ("limite temporário", "a conexão demorou demais"), que diz mais que
+    "indisponível". As escritas seguem numa transação só.
+  - ⚠️ **`yahooSymbolFor` teve de mudar junto:** o guard era
+    `quoteProviderFor(type) === null`; com renda fixa deixando de ser `null`, ele
+    passaria a pedir `"TESOURO IPCA+ 2035.SA"` ao Yahoo. Virou `!== 'yahoo'`.
+  - O parser (`parseTesouroPrices`) mora em **`lib/quotes.ts`**, não em
+    `lib/treasury.ts`: aquele é importado por Client Component e o parser não tem
+    o que fazer no bundle do browser. `lib/tesouro.ts` só fala com a rede e
+    devolve texto cru — mesma divisão de `lib/yahoo.ts` / `lib/quotes.ts`.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de
