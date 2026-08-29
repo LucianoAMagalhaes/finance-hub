@@ -376,7 +376,8 @@ as telas são desenhadas do zero, na paleta `cofre`.
 Rodada aberta a partir da pergunta "estamos calculando a rentabilidade das ações?".
 A conta de rentabilidade (`valor atual − investido`) já era a mesma que o Google
 Finanças mostra, e vale igual para renda fixa — o que faltava era **nomear o
-título** e **buscar o PU sozinho**. Plano em três branches; esta é a primeira.
+título** e **buscar o PU sozinho**. Planejada em três branches; a terceira foi
+**cortada** (ver o fim desta seção), então a rodada entrega duas.
 
 - ✅ **`feat/treasury-identity`** — um título do Tesouro deixa de ser texto livre.
   Novo enum **`TreasuryKind`** (8 títulos) e colunas `treasuryKind` +
@@ -403,6 +404,67 @@ título** e **buscar o PU sozinho**. Plano em três branches; esta é a primeira
   - O formulário avisa quando o título escolhido **paga juros semestrais**: o app
     não registra cupom recebido (mesma lacuna dos dividendos), então o resultado
     desses títulos aparece **menor que o real**.
+
+- ✅ **`feat/treasury-quotes`** — o botão **"Atualizar cotações"** passa a
+  precificar também os títulos do Tesouro. Decisão registrada no
+  **[ADR-011](docs/adr/ADR-011-cotacoes-tesouro-direto.md)**.
+  - **Fonte:** o arquivo diário do **Tesouro Transparente** (dado aberto do
+    governo, portal CKAN) — sem chave, sem cadastro, sem limite, e **um request
+    traz todos os títulos**. O endpoint `treasurybondsinfo.json` do site oficial,
+    que seria mais direto, responde **410 Gone**; foi testado.
+  - **A viabilidade depende de cancelar o stream.** O arquivo é a série histórica
+    inteira, **13,8 MB**, mas vem **do mais recente para o mais antigo** e os 58
+    títulos da data mais nova cabem em ~4 KB. **`Range` não é honrado**
+    (`curl -r 0-600` baixou tudo) e não há `Content-Length`, então o cliente lê
+    **32 KB e desliga**: 40 KB em **178 ms**. A última linha vem truncada e o
+    parser descarta qualquer linha sem todos os campos.
+  - **Coluna `PU Venda`**, o preço de recompra — o que o investidor receberia.
+    Validado contra o extrato real: `1,10 × 2.458,57 = 2.704,43` vs `2.704,41` do
+    banco. `PU Compra` daria R$ 26 a mais.
+  - **Chave `(tipo, ano)`**, não a data exata: nenhum tipo repete ano, e assim um
+    dia de vencimento digitado de memória ainda casa. Empate na chave **descarta
+    os dois** — "sem retorno" é visível, precificar um com a cotação do outro
+    seria silencioso e errado.
+  - **O carimbo é a data do arquivo, não a hora do clique**, porque o preço é da
+    manhã do último dia útil. Detalhe que custou um bug: `formatRelativeDay`
+    compara **dias locais**, então gravar a Data Base como meia-noite UTC fazia um
+    preço de ontem ler **"há 2 dias"** em UTC−3. A Data Base virou um momento ao
+    **meio-dia local** — o único ponto do dia que sobrevive a qualquer fuso.
+  - **Queda de um provedor não derruba o outro** (`Promise.allSettled`): se o
+    Tesouro cair, as ações ainda atualizam e o resumo diz "Tesouro Direto
+    indisponível". Se **todos** falharem, volta a mensagem detalhada do provedor
+    ("limite temporário", "a conexão demorou demais"), que diz mais que
+    "indisponível". As escritas seguem numa transação só.
+  - ⚠️ **`yahooSymbolFor` teve de mudar junto:** o guard era
+    `quoteProviderFor(type) === null`; com renda fixa deixando de ser `null`, ele
+    passaria a pedir `"TESOURO IPCA+ 2035.SA"` ao Yahoo. Virou `!== 'yahoo'`.
+  - O parser (`parseTesouroPrices`) mora em **`lib/quotes.ts`**, não em
+    `lib/treasury.ts`: aquele é importado por Client Component e o parser não tem
+    o que fazer no bundle do browser. `lib/tesouro.ts` só fala com a rede e
+    devolve texto cru — mesma divisão de `lib/yahoo.ts` / `lib/quotes.ts`.
+
+- ❌ **`feat/treasury-net-value`** (valor líquido: IR + IOF + taxa B3) —
+  **cortada** pelo desenvolvedor depois de pronta, em 2026-08-29. A Carteira fica
+  **só com o valor bruto**.
+  - **Por quê:** o bruto já bate com o "Saldo Bruto" do extrato do banco
+    (validado ao centavo), enquanto o líquido acrescentava uma camada de
+    **previsão** — IR e taxa B3 "previstos", assumindo resgate hoje ao preço de
+    hoje — para um número que não muda nenhuma decisão do dia a dia.
+  - **Consequência a ter em mente:** o "Resultado" de um título é **bruto** e,
+    portanto, **otimista**. Na carteira de referência a diferença era de R$ 158
+    sobre R$ 53 mil (~0,3%), e chegava a 2,6 pontos percentuais no IPCA+ 2035
+    (+12,85% bruto vs +10,22% líquido). O IR do Tesouro é **retido na fonte** no
+    resgate, então essa diferença é real, não opcional.
+  - **O trabalho está preservado** na branch `feat/treasury-net-value` (PR #52,
+    fechada, não deletada): `treasuryNetValue`/`irRateForDays`/`iofRateForDays`
+    em `lib/treasury.ts`, o painel no drill-down da tabela e o ADR-012. Foi
+    validado contra um extrato real do Tesouro (674 dias → 17,5% → R$ 21,27 vs
+    R$ 21,26). Se o líquido voltar a interessar, é reabrir a PR — **não**
+    reescrever.
+  - Se isso acontecer, o que ficou anotado como pegadinha: o cálculo é **por lote
+    de compra** (a alíquota depende da idade de cada aplicação, então custo médio
+    não serve), e ele só é simples porque vendas foram cortadas — todo lote ainda
+    está em carteira e não há FIFO a resolver.
 
 #### Duas features previstas foram cortadas — 2026-08-22
 

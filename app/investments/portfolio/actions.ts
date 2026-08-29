@@ -20,12 +20,16 @@ import { getLocalUser } from '@/lib/user'
 import { assetAnswersSchema, manualScoreSchema } from '@/lib/scoring-schema'
 import { scoreScopeFor } from '@/lib/scoring'
 import { fetchYahooQuotes, isYahooError } from '@/lib/yahoo'
+import { fetchTesouroPriceFile, isTesouroError, TesouroError } from '@/lib/tesouro'
 import {
   brlQuoteToCents,
+  parseTesouroPrices,
   quoteProviderFor,
   summarizeQuoteRun,
+  tesouroPriceKey,
   yahooSymbolFor,
   type QuoteOutcome,
+  type QuoteProvider,
 } from '@/lib/quotes'
 import {
   assetSchema,
@@ -492,6 +496,85 @@ export type RefreshQuotesResult =
   | { ok: true; summary: string; updated: number }
   | { ok: false; error: string }
 
+// One asset as the quote refresh needs to see it.
+type QuotableAsset = {
+  id: string
+  ticker: string
+  type: AssetType
+  currentPriceCents: unknown
+  treasuryKind: TreasuryKind | null
+  maturityDate: Date | null
+}
+
+// A price a provider actually returned, with the moment it refers to.
+//
+// `asOf` travels with the price because the two providers speak about different
+// moments: Yahoo answers with the market as it is right now, while the Tesouro
+// file carries the MORNING price of the last business day. Stamping both with
+// "now" would make a Friday price claim to be from Sunday, and the "há 3 dias"
+// label and the stale-quote warning both read that column.
+type ResolvedPrice = { priceCents: number; asOf: Date }
+
+/**
+ * Prices the assets Yahoo covers. Rejects with YahooError if the run as a whole
+ * cannot proceed; a single symbol Yahoo cannot price is simply left out of the
+ * result, which the caller reports as "sem retorno".
+ */
+async function resolveYahooPrices(
+  assets: QuotableAsset[],
+): Promise<Map<string, ResolvedPrice>> {
+  // The bare ticker is what the user typed and what the table shows; Yahoo
+  // addresses the same asset with an exchange suffix. The mapping lives in
+  // lib/quotes, so this action never concatenates a symbol.
+  const symbols = new Map(
+    assets.map((asset) => [asset.id, yahooSymbolFor(asset.ticker, asset.type)!]),
+  )
+  const quotes = await fetchYahooQuotes(Array.from(symbols.values()))
+  const asOf = new Date()
+
+  const prices = new Map<string, ResolvedPrice>()
+  for (const asset of assets) {
+    // brlQuoteToCents also REFUSES a quote that came back in another currency,
+    // which is what keeps a dollar price out of a column that means reais.
+    const priceCents = brlQuoteToCents(quotes.get(symbols.get(asset.id)!) ?? null)
+    if (priceCents !== null) prices.set(asset.id, { priceCents, asOf })
+  }
+  return prices
+}
+
+/**
+ * Prices the Tesouro bonds from the daily file — ONE request for all of them.
+ *
+ * A bond whose (kind, maturity) columns are still empty gets no price and is
+ * reported as "sem retorno": without that pair there is nothing to look up.
+ */
+async function resolveTesouroPrices(
+  assets: QuotableAsset[],
+): Promise<Map<string, ResolvedPrice>> {
+  const parsed = parseTesouroPrices(await fetchTesouroPriceFile())
+
+  // The file arrived but held no row this app could read — a provider problem,
+  // not a per-bond one, so it is reported like any other provider failure.
+  if (parsed === null) {
+    throw new TesouroError(
+      'O arquivo de preços do Tesouro Direto veio num formato inesperado.',
+    )
+  }
+
+  const prices = new Map<string, ResolvedPrice>()
+  for (const asset of assets) {
+    if (asset.treasuryKind === null || asset.maturityDate === null) continue
+    const priceCents = parsed.prices.get(
+      tesouroPriceKey(asset.treasuryKind, asset.maturityDate),
+    )
+    // The price is stamped with the file's own date, not with "now".
+    if (priceCents !== undefined) {
+      prices.set(asset.id, { priceCents, asOf: parsed.dataBase })
+    }
+  }
+  return prices
+}
+
 /**
  * Fetches the current price of every automatically-quotable asset and stores it.
  *
@@ -517,7 +600,14 @@ export async function refreshQuotes(): Promise<RefreshQuotesResult> {
 
     const assets = await prisma.asset.findMany({
       where: { userId: user.id },
-      select: { id: true, ticker: true, type: true, currentPriceCents: true },
+      select: {
+        id: true,
+        ticker: true,
+        type: true,
+        currentPriceCents: true,
+        treasuryKind: true,
+        maturityDate: true,
+      },
     })
 
     const quotable = assets.filter((asset) => quoteProviderFor(asset.type) !== null)
@@ -525,31 +615,66 @@ export async function refreshQuotes(): Promise<RefreshQuotesResult> {
       return { ok: true, summary: summarizeQuoteRun([]), updated: 0 }
     }
 
-    // The bare ticker is what the user typed and what the table shows; Yahoo
-    // addresses the same asset with an exchange suffix. The mapping between the
-    // two lives in lib/quotes, so this action never concatenates a symbol.
-    const symbols = new Map(
-      quotable.map((asset) => [asset.id, yahooSymbolFor(asset.ticker, asset.type)!]),
-    )
+    // One job per provider that actually has something to price — a portfolio
+    // with no bonds never touches the Tesouro's server, and vice versa.
+    const jobs: { provider: QuoteProvider; run: () => Promise<Map<string, ResolvedPrice>> }[] =
+      []
+    for (const provider of ['yahoo', 'tesouro'] as const) {
+      const mine = quotable.filter((asset) => quoteProviderFor(asset.type) === provider)
+      if (mine.length === 0) continue
+      jobs.push({
+        provider,
+        run: () =>
+          provider === 'yahoo' ? resolveYahooPrices(mine) : resolveTesouroPrices(mine),
+      })
+    }
 
-    // Throws YahooError when the whole run cannot proceed (rate limited, no
-    // network); a single unknown symbol just comes back null.
-    const quotes = await fetchYahooQuotes(Array.from(symbols.values()))
+    // allSettled, not all: the two providers are independent, and one of them
+    // being down is no reason to throw away the prices the other just returned.
+    const settled = await Promise.allSettled(jobs.map((job) => job.run()))
+
+    const resolved = new Map<string, ResolvedPrice>()
+    const failedProviders: QuoteProvider[] = []
+    const failures: unknown[] = []
+
+    settled.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        result.value.forEach((price, assetId) => resolved.set(assetId, price))
+        return
+      }
+      failedProviders.push(jobs[index].provider)
+      failures.push(result.reason)
+      // A provider error carries a finished sentence; anything else is a bug.
+      if (!isYahooError(result.reason) && !isTesouroError(result.reason)) {
+        console.error('refreshQuotes provider failed:', result.reason)
+      }
+    })
+
+    // Every provider failed, so there is nothing to save and nothing partial to
+    // report. Fall back to the old behaviour and show the provider's own
+    // sentence, which says WHY ("limite temporário", "a conexão demorou demais")
+    // instead of the bare "indisponível" a partial run has room for.
+    if (failedProviders.length === jobs.length) {
+      const reason = failures[0]
+      if (isYahooError(reason) || isTesouroError(reason)) {
+        return { ok: false, error: reason.message }
+      }
+      return { ok: false, error: 'Não foi possível atualizar as cotações.' }
+    }
 
     const outcomes: QuoteOutcome[] = []
     const writes = []
-    const stampedAt = new Date()
 
     for (const asset of quotable) {
-      // brlQuoteToCents also REFUSES a quote that came back in another currency,
-      // which is what keeps a dollar price out of a column that means reais.
-      const priceCents = brlQuoteToCents(quotes.get(symbols.get(asset.id)!) ?? null)
+      const price = resolved.get(asset.id)
 
       // Nothing usable came back for this one: keep what is stored, report it.
-      if (priceCents === null) {
+      if (price === undefined) {
         outcomes.push({ ticker: asset.ticker, status: 'missing' })
         continue
       }
+
+      const { priceCents, asOf } = price
 
       // The API's answer goes through the SAME schema as a hand-typed quote —
       // there is one definition of a valid price, and this is it.
@@ -572,7 +697,7 @@ export async function refreshQuotes(): Promise<RefreshQuotesResult> {
       writes.push(
         prisma.asset.updateMany({
           where: { id: asset.id, userId: user.id },
-          data: { currentPriceCents: priceCents, priceUpdatedAt: stampedAt },
+          data: { currentPriceCents: priceCents, priceUpdatedAt: asOf },
         }),
       )
       outcomes.push({ ticker: asset.ticker, status: 'updated', priceCents })
@@ -585,11 +710,19 @@ export async function refreshQuotes(): Promise<RefreshQuotesResult> {
     // it is stale the moment the quotes move.
     revalidatePath('/investments/contributions')
 
-    return { ok: true, summary: summarizeQuoteRun(outcomes), updated: writes.length }
+    return {
+      ok: true,
+      summary: summarizeQuoteRun(outcomes, failedProviders),
+      updated: writes.length,
+    }
   } catch (error) {
-    // A YahooError already carries a finished sentence for the user (connection
-    // failed, limit hit); anything else is a bug and stays in the log.
-    if (isYahooError(error)) return { ok: false, error: error.message }
+    // A provider error already carries a finished sentence for the user
+    // (connection failed, limit hit); anything else is a bug and stays in the
+    // log. Reaching here now means something outside the providers broke — the
+    // providers themselves are handled by allSettled above.
+    if (isYahooError(error) || isTesouroError(error)) {
+      return { ok: false, error: error.message }
+    }
     console.error('refreshQuotes failed:', error)
     return { ok: false, error: 'Não foi possível atualizar as cotações.' }
   }

@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { formatRelativeDay } from '@/lib/format'
 import {
   brlQuoteToCents,
+  parseTesouroPrices,
   quoteProviderFor,
   realsToCents,
   summarizeQuoteRun,
+  tesouroPriceKey,
   yahooSymbolFor,
   type QuoteOutcome,
 } from '@/lib/quotes'
@@ -24,12 +27,16 @@ describe('quoteProviderFor', () => {
     expect(quoteProviderFor('fii')).toBe('yahoo')
   })
 
+  it('sends Tesouro bonds to their own provider', () => {
+    // The Tesouro publishes one daily file with every bond, priced in reais.
+    expect(quoteProviderFor('fixed_income')).toBe('tesouro')
+  })
+
   it('leaves the types that do not trade in reais on the manual cell', () => {
     // Yahoo CAN price these — it just answers in dollars, and the column is
     // cents of BRL with no currency beside it (ADR-010).
     expect(quoteProviderFor('stock_intl')).toBeNull()
     expect(quoteProviderFor('crypto')).toBeNull()
-    expect(quoteProviderFor('fixed_income')).toBeNull()
   })
 })
 
@@ -53,7 +60,10 @@ describe('yahooSymbolFor', () => {
   it('has no symbol for a type that is not fetched', () => {
     expect(yahooSymbolFor('BTC', 'crypto')).toBeNull()
     expect(yahooSymbolFor('AAPL', 'stock_intl')).toBeNull()
-    expect(yahooSymbolFor('IPCA+ 2035', 'fixed_income')).toBeNull()
+    // Fixed income has a provider now, so this guard cannot be "has no
+    // provider" — it has to be "is not Yahoo", or a bond would be asked for as
+    // "TESOURO IPCA+ 2035.SA".
+    expect(yahooSymbolFor('Tesouro IPCA+ 2035', 'fixed_income')).toBeNull()
   })
 })
 
@@ -147,5 +157,159 @@ describe('summarizeQuoteRun', () => {
 
   it('reports a run where nothing came back at all', () => {
     expect(summarizeQuoteRun([missing('BBAS3')])).toBe('1 sem retorno (BBAS3)')
+  })
+})
+
+// --- Tesouro price file -----------------------------------------------------
+
+// Real rows from the Tesouro Transparente file, trimmed to what matters. The
+// file is served newest-first, so 28/08 comes before 27/08 here too.
+// The calendar day a moment falls on in LOCAL time — what formatRelativeDay
+// reads, and therefore what matters for the quote's displayed age.
+function localDay(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const CSV_HEADER =
+  'Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha'
+
+const CSV = [
+  CSV_HEADER,
+  'Tesouro Selic;01/03/2031;28/08/2026;0,07;0,08;19708,55;19689,47;19689,47',
+  'Tesouro IPCA+;15/05/2035;28/08/2026;7,76;7,88;2482,41;2458,57;2458,57',
+  'Tesouro IPCA+ com Juros Semestrais;15/05/2035;28/08/2026;7,79;7,91;4318,84;4286,98;4286,98',
+  'Tesouro Prefixado;01/01/2029;28/08/2026;14,08;14,20;737,30;735,12;735,12',
+  // Yesterday's rows must not win over today's.
+  'Tesouro IPCA+;15/05/2035;27/08/2026;7,70;7,82;2490,00;2470,00;2470,00',
+].join('\n')
+
+describe('parseTesouroPrices', () => {
+  it('reads the most recent date and prices each bond', () => {
+    const parsed = parseTesouroPrices(CSV)
+    expect(parsed).not.toBeNull()
+    // Asserted on LOCAL parts, because the Data Base is stored as a moment
+    // inside that local day (see parseDataBase) — toISOString would make this
+    // test pass or fail depending on the machine's timezone.
+    expect(localDay(parsed!.dataBase)).toBe('2026-08-28')
+
+    const price = parsed!.prices.get(tesouroPriceKey('ipca', new Date('2035-05-15T00:00:00Z')))
+    // PU Venda 2458,57 -> 245857 cents.
+    expect(price).toBe(245857)
+  })
+
+  it('takes PU Venda, not PU Compra', () => {
+    // The column choice is worth a test of its own: it is what the holder would
+    // receive, and it matched a real bank statement to R$ 0,02. PU Compra
+    // (2482,41) would overstate the position.
+    const parsed = parseTesouroPrices(CSV)!
+    const key = tesouroPriceKey('ipca', new Date('2035-05-15T00:00:00Z'))
+    expect(parsed.prices.get(key)).toBe(245857)
+    expect(parsed.prices.get(key)).not.toBe(248241)
+  })
+
+  it('ignores rows from an older Data Base', () => {
+    // 27/08 carried a different price for the same bond; today's must win.
+    const parsed = parseTesouroPrices(CSV)!
+    expect(parsed.prices.get(tesouroPriceKey('ipca', new Date('2035-05-15T00:00:00Z')))).toBe(
+      245857,
+    )
+  })
+
+  it('keeps the coupon bond apart from the principal one', () => {
+    // Same kind-ish name, same year, very different price. Confusing them would
+    // value a position at nearly double.
+    const parsed = parseTesouroPrices(CSV)!
+    const may2035 = new Date('2035-05-15T00:00:00Z')
+    expect(parsed.prices.get(tesouroPriceKey('ipca', may2035))).toBe(245857)
+    expect(parsed.prices.get(tesouroPriceKey('ipca_semiannual', may2035))).toBe(428698)
+  })
+
+  it('finds the newest date even if the file is not sorted', () => {
+    const shuffled = [CSV_HEADER, ...CSV.split('\n').slice(1).reverse()].join('\n')
+    const parsed = parseTesouroPrices(shuffled)!
+    expect(localDay(parsed.dataBase)).toBe('2026-08-28')
+    expect(parsed.prices.get(tesouroPriceKey('ipca', new Date('2035-05-15T00:00:00Z')))).toBe(
+      245857,
+    )
+  })
+
+  it('drops BOTH bonds when two land on the same key', () => {
+    // Should never happen (no kind offers two maturities in one year), but if
+    // it did, pricing one with the other's quote would be silent and wrong.
+    // Leaving both unpriced is visible and harmless.
+    const ambiguous = [
+      CSV_HEADER,
+      'Tesouro Selic;01/03/2031;28/08/2026;0,07;0,08;19708,55;19689,47;19689,47',
+      'Tesouro Selic;01/09/2031;28/08/2026;0,07;0,08;19700,00;19600,00;19600,00',
+    ].join('\n')
+    const parsed = parseTesouroPrices(ambiguous)!
+    expect(parsed.prices.has(tesouroPriceKey('selic', new Date('2031-03-01T00:00:00Z')))).toBe(
+      false,
+    )
+  })
+
+  it('skips a bond name it does not know without losing the others', () => {
+    const withStranger = [
+      CSV_HEADER,
+      'Tesouro Ouro;01/03/2031;28/08/2026;0,07;0,08;100,00;99,00;99,00',
+      'Tesouro Selic;01/03/2031;28/08/2026;0,07;0,08;19708,55;19689,47;19689,47',
+    ].join('\n')
+    const parsed = parseTesouroPrices(withStranger)!
+    expect(parsed.prices.size).toBe(1)
+    expect(parsed.prices.get(tesouroPriceKey('selic', new Date('2031-03-01T00:00:00Z')))).toBe(
+      1968947,
+    )
+  })
+
+  it('survives the truncated last line the early hang-up leaves behind', () => {
+    // lib/tesouro stops reading after 32 KB, so the text almost always ends
+    // mid-row. That row has too few fields and is simply skipped.
+    const truncated = CSV + '\nTesouro Prefixado;01/01/2032;28/08/2026;14,49'
+    const parsed = parseTesouroPrices(truncated)!
+    expect(parsed.prices.size).toBe(4)
+  })
+
+  it('returns null when there is nothing usable, instead of throwing', () => {
+    expect(parseTesouroPrices('')).toBeNull()
+    expect(parseTesouroPrices(CSV_HEADER)).toBeNull()
+    expect(parseTesouroPrices('<html>404</html>')).toBeNull()
+  })
+})
+
+describe('summarizeQuoteRun — provider down', () => {
+  it('names the provider that could not be reached', () => {
+    const summary = summarizeQuoteRun([updated('PETR4'), missing('Tesouro Selic 2031')], [
+      'tesouro',
+    ])
+    expect(summary).toContain('Tesouro Direto indisponível')
+    // The bonds still show as missing, but the sentence says why.
+    expect(summary).toContain('1 cotação atualizada')
+  })
+
+  it('says only the failure when nothing could be priced', () => {
+    expect(summarizeQuoteRun([], ['yahoo'])).toBe('Yahoo Finance indisponível')
+  })
+
+  it('is unchanged when every provider answered', () => {
+    expect(summarizeQuoteRun([updated('PETR4')])).toBe('1 cotação atualizada')
+  })
+})
+
+describe('parseTesouroPrices — the Data Base is a local moment', () => {
+  it('lands on the file\'s own calendar day, not the one before it', () => {
+    // The regression this guards: stored at UTC midnight, 28/08 renders as 27/08
+    // anywhere west of Greenwich, and yesterday's price reads "há 2 dias".
+    const parsed = parseTesouroPrices(CSV)!
+    expect(localDay(parsed.dataBase)).toBe('2026-08-28')
+    expect(formatRelativeDay(parsed.dataBase, new Date(2026, 7, 29, 18))).toBe('ontem')
+    expect(formatRelativeDay(parsed.dataBase, new Date(2026, 7, 28, 18))).toBe('hoje')
+  })
+
+  it('rejects a date that does not exist', () => {
+    const impossible = [CSV_HEADER, 'Tesouro Selic;01/03/2031;31/02/2026;0,0;0,0;1;2;2'].join(
+      '\n',
+    )
+    expect(parseTesouroPrices(impossible)).toBeNull()
   })
 })

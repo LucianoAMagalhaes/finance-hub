@@ -11,11 +11,18 @@
 //
 // Tests live in lib/quotes.test.ts.
 
-import type { AssetType } from '@/lib/constants'
+import type { AssetType, TreasuryKind } from '@/lib/constants'
 import type { YahooQuote } from '@/lib/yahoo'
+import { treasuryKindFromName } from '@/lib/treasury'
 
 /** The market-data sources this app knows how to call. */
-export type QuoteProvider = 'yahoo'
+export type QuoteProvider = 'yahoo' | 'tesouro'
+
+// How each provider is named when a run has to report that it was unreachable.
+const PROVIDER_LABELS: Record<QuoteProvider, string> = {
+  yahoo: 'Yahoo Finance',
+  tesouro: 'Tesouro Direto',
+}
 
 /** What happened to one ticker in one refresh run. */
 export type QuoteOutcome =
@@ -50,9 +57,12 @@ export function quoteProviderFor(type: AssetType): QuoteProvider | null {
     case 'stock_br':
     case 'fii':
       return 'yahoo'
+    case 'fixed_income':
+      // Tesouro Direto publishes a daily price file with every bond in it, and
+      // bonds are priced in reais like everything else fetched here.
+      return 'tesouro'
     case 'stock_intl':
     case 'crypto':
-    case 'fixed_income':
       return null
   }
 }
@@ -71,7 +81,10 @@ export function quoteProviderFor(type: AssetType): QuoteProvider | null {
  * @param type - The asset's type, which decides the market.
  */
 export function yahooSymbolFor(ticker: string, type: AssetType): string | null {
-  if (quoteProviderFor(type) === null) return null
+  // Note the check: `!== 'yahoo'`, NOT `=== null`. Fixed income now has a
+  // provider of its own, and the looser check would happily hand Yahoo a symbol
+  // like "TESOURO IPCA+ 2035.SA".
+  if (quoteProviderFor(type) !== 'yahoo') return null
   return `${ticker.trim().toUpperCase()}.SA`
 }
 
@@ -119,16 +132,189 @@ export function brlQuoteToCents(quote: YahooQuote | null): number | null {
 }
 
 /**
+ * The prices of every Tesouro bond on offer, as of one date.
+ *
+ * The key is built by tesouroPriceKey, not by the bond's full maturity date —
+ * see that function for why.
+ */
+export type TesouroPrices = {
+  /** The "Data Base" of the rows read: the morning the prices are from. */
+  dataBase: Date
+  /** Bond key -> unit price (PU) in cents. */
+  prices: Map<string, number>
+}
+
+/**
+ * The key a bond is looked up by: its kind plus the YEAR it matures.
+ *
+ * Not the full date, on purpose. No kind offers two maturities in the same year
+ * (verified against all 58 bonds on offer), so the year is enough to name one
+ * bond — and it is forgiving of a maturity whose day the user typed from memory.
+ * "Tesouro IPCA+ 2035" is the bond; whether they wrote 15/05 or 15/06 is not
+ * something the app should punish with a missing quote.
+ *
+ * @param kind - Which Tesouro bond it is.
+ * @param maturityDate - Its maturity, stored at UTC midnight.
+ */
+export function tesouroPriceKey(kind: TreasuryKind, maturityDate: Date): string {
+  return `${kind}:${maturityDate.getUTCFullYear()}`
+}
+
+// "28/08/2026" -> its three numbers, or null when it is not a date.
+//
+// The two dates in this file are turned into Date objects DIFFERENTLY, which is
+// why the parsing stops here instead of returning one:
+//   * the maturity only ever gives up its YEAR, so UTC midnight is right and
+//     matches how maturities are stored everywhere else in the app;
+//   * the Data Base is written to `priceUpdatedAt`, which is a MOMENT that gets
+//     rendered in local time by formatRelativeDay. Stored at UTC midnight it
+//     would land on the previous calendar day anywhere west of Greenwich, and a
+//     price from yesterday would read "há 2 dias".
+function parseBrDateParts(
+  value: string,
+): { year: number; month: number; day: number } | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim())
+  if (match === null) return null
+  const [, day, month, year] = match
+  const parts = { year: Number(year), month: Number(month), day: Number(day) }
+  // Rejects 31/02 and friends: the Date would roll over into the next month.
+  const probe = new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+  return probe.getUTCMonth() === parts.month - 1 && probe.getUTCDate() === parts.day
+    ? parts
+    : null
+}
+
+// A maturity, at UTC midnight — only its year is ever read.
+function parseMaturity(value: string): Date | null {
+  const parts = parseBrDateParts(value)
+  return parts === null
+    ? null
+    : new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+}
+
+// The Data Base as a moment on that calendar day, LOCAL time.
+//
+// Noon, not midnight: the file publishes the MORNING price of that day, so any
+// time inside the day is closer to the truth than midnight — and noon is the
+// one point that stays on the right day under every timezone and DST shift.
+function parseDataBase(value: string): Date | null {
+  const parts = parseBrDateParts(value)
+  return parts === null ? null : new Date(parts.year, parts.month - 1, parts.day, 12)
+}
+
+// "2458,57" -> 2458.57. The file writes money the Brazilian way.
+function parseBrNumber(value: string): number | null {
+  const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * Reads the Tesouro's daily price file into the prices of the most recent date.
+ *
+ * The file carries the entire history, so this keeps ONLY the rows of the latest
+ * "Data Base" it can see. It scans for the maximum date rather than trusting the
+ * first row: the file happens to be sorted newest-first (which is what lets
+ * lib/tesouro hang up after 32 KB), but relying on that ordering for
+ * CORRECTNESS as well as for speed would make a re-sorted file silently price
+ * the portfolio with last year's numbers.
+ *
+ * Which column: **PU Venda**, the price the Tesouro buys the bond back at — what
+ * the holder would actually receive. Checked against a real statement: 1,10 ×
+ * 2.458,57 = 2.704,43 against the bank's 2.704,41. PU Compra would have given
+ * 2.730,65, R$ 26 too high.
+ *
+ * No currency check here, unlike brlQuoteToCents: this file is Brazilian
+ * government data about Brazilian bonds and has no currency column to check
+ * against. The absence is deliberate, not an oversight.
+ *
+ * Rows that cannot be understood — a truncated last line, a bond name the app
+ * does not know, a malformed price — are skipped in silence. One odd row must
+ * not cost the other 57 their quote.
+ *
+ * @param csv - The beginning of the price file, header included.
+ * @returns The prices of the newest date, or null when the text held no usable row.
+ */
+export function parseTesouroPrices(csv: string): TesouroPrices | null {
+  type Row = { key: string; dataBase: Date; priceCents: number }
+  const rows: Row[] = []
+
+  // The header is skipped by the field checks below, so there is no special
+  // case for it: "Tipo Titulo" is not a bond name and "Data Base" is not a date.
+  for (const line of csv.split('\n')) {
+    const fields = line.split(';')
+    if (fields.length < 8) continue // truncated last line, or not a data row
+
+    const kind = treasuryKindFromName(fields[0])
+    if (kind === null) continue
+
+    const maturity = parseMaturity(fields[1])
+    const dataBase = parseDataBase(fields[2])
+    if (maturity === null || dataBase === null) continue
+
+    const puVenda = parseBrNumber(fields[6])
+    if (puVenda === null) continue
+
+    const priceCents = realsToCents(puVenda)
+    if (priceCents === null) continue
+
+    rows.push({ key: tesouroPriceKey(kind, maturity), dataBase, priceCents })
+  }
+
+  if (rows.length === 0) return null
+
+  const newest = rows.reduce(
+    (max, row) => (row.dataBase.getTime() > max.getTime() ? row.dataBase : max),
+    rows[0].dataBase,
+  )
+
+  const prices = new Map<string, number>()
+  const ambiguous = new Set<string>()
+
+  for (const row of rows) {
+    if (row.dataBase.getTime() !== newest.getTime()) continue
+
+    // Two bonds landing on one key would mean the "no repeated year within a
+    // kind" assumption broke. Rather than pick one and price the other wrong,
+    // drop both: they become "sem retorno" and keep the quote they had, which
+    // is a visible, harmless outcome instead of a silent, wrong number.
+    if (prices.has(row.key)) {
+      ambiguous.add(row.key)
+      continue
+    }
+    prices.set(row.key, row.priceCents)
+  }
+
+  // Array.from (instead of iterating the Set directly) keeps this compatible
+  // with the project's TypeScript target — same reason allocationByType uses it.
+  for (const key of Array.from(ambiguous)) prices.delete(key)
+
+  return { dataBase: newest, prices }
+}
+
+/**
  * The one-line report the refresh button shows after a run.
  *
  * Lives here, and not inside the component, so the wording can be tested without
  * rendering anything — the same reason formatScore sits in lib/scoring.ts.
  *
  * @param outcomes - One entry per ticker the run tried to price.
+ * @param failedProviders - Providers that could not be reached at all. Their
+ *                          assets show up among `outcomes` as `missing`, but the
+ *                          reason belongs in the sentence: "sem retorno" reads
+ *                          like a problem with the ticker, not with the source.
  */
-export function summarizeQuoteRun(outcomes: QuoteOutcome[]): string {
+export function summarizeQuoteRun(
+  outcomes: QuoteOutcome[],
+  failedProviders: QuoteProvider[] = [],
+): string {
+  const failures = failedProviders.map(
+    (provider) => `${PROVIDER_LABELS[provider]} indisponível`,
+  )
+
   if (outcomes.length === 0) {
-    return 'Nenhum ativo com cotação automática.'
+    return failures.length > 0
+      ? failures.join(' · ')
+      : 'Nenhum ativo com cotação automática.'
   }
 
   const updated = outcomes.filter((outcome) => outcome.status === 'updated').length
@@ -153,5 +339,5 @@ export function summarizeQuoteRun(outcomes: QuoteOutcome[]): string {
     )
   }
 
-  return parts.join(' · ')
+  return [...parts, ...failures].join(' · ')
 }
