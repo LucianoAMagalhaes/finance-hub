@@ -500,6 +500,26 @@ significa centavos de real: a tela mostrava `R$ 96,59` onde o certo era
   - Cripto ficou de fora: mesma mecânica, símbolo diferente no Yahoo
     (`BTC-USD`), e não há nenhuma na carteira para verificar.
 
+- ✅ **`feat/foreign-quotes`** — o botão "Atualizar cotações" passa a precificar
+  também o ativo internacional, convertendo para real antes de gravar. Decisão
+  registrada no **[ADR-013](docs/adr/ADR-013-ativos-em-moeda-estrangeira.md)**,
+  que **supera parcialmente o ADR-010** (o critério "só o que é negociado em
+  real" deixa de valer para `stock_intl`).
+  - **`USDBRL=X` viaja no MESMO lote de símbolos**, não numa requisição própria:
+    o Yahoo precifica o dólar como qualquer ticker, e aquele endpoint estrangula
+    rajada — uma ida a menos importa.
+  - **`brlQuoteToCents` deixou de só recusar e passou a converter**, mas apenas
+    as moedas da lista fechada e apenas com taxa em mãos. Sem o dólar na rodada,
+    o ativo cai em "sem retorno" e mantém o preço que tinha.
+  - **Duas precisões, duas funções**: `foreignToBrlCents` para dinheiro que se
+    moveu (centavo inteiro, ADR-005) e `brlQuoteToCents` para cotação (converte o
+    preço e só então tira os centavos, com 6 casas — arredondar antes achataria a
+    fração que o ADR-007 existe para preservar).
+  - **`yahooSymbolFor` virou um `switch` exaustivo**: B3 leva `.SA`, listagem
+    americana vai **sem sufixo** (`IVV`, não `IVV.SA`), Tesouro e cripto não vão.
+  - Resultado no app: IVV saiu de "sem cotação" para **R$ 4.023,77** por cota
+    (773,00 × 5,2054), valor atual R$ 663,92 e resultado **+17,11%**.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de

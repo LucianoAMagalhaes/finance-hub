@@ -58,12 +58,18 @@ export function quoteProviderFor(type: AssetType): QuoteProvider | null {
     case 'stock_br':
     case 'fii':
       return 'yahoo'
+    case 'stock_intl':
+      // Yahoo prices these in dollars, and refreshQuotes converts before
+      // storing (ADR-013) — so the column keeps meaning cents of BRL.
+      return 'yahoo'
     case 'fixed_income':
       // Tesouro Direto publishes a daily price file with every bond in it, and
       // bonds are priced in reais like everything else fetched here.
       return 'tesouro'
-    case 'stock_intl':
     case 'crypto':
+      // Same mechanics as stock_intl, but a different symbol shape on Yahoo
+      // ("BTC-USD"). Left manual until there is a coin in the portfolio to
+      // check it against.
       return null
   }
 }
@@ -82,11 +88,25 @@ export function quoteProviderFor(type: AssetType): QuoteProvider | null {
  * @param type - The asset's type, which decides the market.
  */
 export function yahooSymbolFor(ticker: string, type: AssetType): string | null {
-  // Note the check: `!== 'yahoo'`, NOT `=== null`. Fixed income now has a
-  // provider of its own, and the looser check would happily hand Yahoo a symbol
-  // like "TESOURO IPCA+ 2035.SA".
-  if (quoteProviderFor(type) !== 'yahoo') return null
-  return `${ticker.trim().toUpperCase()}.SA`
+  const symbol = ticker.trim().toUpperCase()
+
+  // An exhaustive switch, so adding an asset type breaks the build here until
+  // someone decides how Yahoo addresses it — the same guard quoteProviderFor
+  // uses. Note it cannot be written as "has a provider": fixed income has one,
+  // and it is not this one.
+  switch (type) {
+    case 'stock_br':
+    case 'fii':
+      // Everything on the B3 answers to the .SA suffix.
+      return `${symbol}.SA`
+    case 'stock_intl':
+      // US listings are the bare symbol: "IVV", "AAPL", "VOO". They answer in
+      // dollars, which refreshQuotes converts before storing.
+      return symbol
+    case 'crypto':
+    case 'fixed_income':
+      return null
+  }
 }
 
 /**
@@ -159,22 +179,43 @@ export function foreignToBrlCents(amountCents: number, rate: number): number | n
 }
 
 /**
- * Turns one provider quote into cents, REFUSING anything that is not in reais.
+ * Turns one provider quote into cents of BRL, converting when it can and
+ * REFUSING when it cannot.
  *
- * This is the safety net for the decision in ADR-010. Yahoo answers whatever
- * currency the symbol trades in, and a wrong suffix (or a ticker that also
- * exists on another exchange) could hand back USD for a symbol we assumed was
- * Brazilian. Since the column stores cents of BRL with no currency beside it,
- * writing that number would silently claim an asset is worth five times less
- * than it is. Refusing means the ticker is reported as "sem retorno" and keeps
- * the price it had — the same treatment as a symbol Yahoo never found.
+ * This is the safety net that keeps `currentPriceCents` meaning cents of real
+ * even though Yahoo answers in whatever currency the symbol trades in. Three
+ * outcomes, in order:
+ *
+ *   * already in reais — stored as is;
+ *   * a currency on the supported list, with a rate in hand — converted (ADR-013);
+ *   * anything else — refused, and the ticker keeps the price it had, reported
+ *     as "sem retorno" exactly like a symbol Yahoo never found.
+ *
+ * That last case is the important one. Before ADR-013 every foreign currency was
+ * refused; now the DOOR is open only to the closed list, because the failure
+ * mode is severe: a wrong suffix, a ticker that also exists on another exchange,
+ * or London's GBp (pence!) would each write a number several times off, silently.
+ *
+ * Note it converts the PRICE and then takes cents, rather than taking cents and
+ * converting: a quote may be finer than a cent (ADR-007), and rounding to an
+ * integer first would flatten that. foreignToBrlCents is the opposite case —
+ * money that actually moved, which is always a whole number of cents.
  *
  * @param quote - The price and currency as the provider reported them.
+ * @param rates - How many reais one unit of each foreign currency is worth.
  */
-export function brlQuoteToCents(quote: YahooQuote | null): number | null {
+export function brlQuoteToCents(
+  quote: YahooQuote | null,
+  rates: ReadonlyMap<string, number> = new Map(),
+): number | null {
   if (quote === null) return null
-  if (quote.currency !== 'BRL') return null
-  return realsToCents(quote.price)
+  if (quote.currency === 'BRL') return realsToCents(quote.price)
+  if (!isSupportedCurrency(quote.currency)) return null
+
+  const rate = rates.get(quote.currency)
+  if (rate === undefined || !Number.isFinite(rate) || rate <= 0) return null
+
+  return realsToCents(quote.price * rate)
 }
 
 /**
