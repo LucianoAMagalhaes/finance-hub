@@ -442,6 +442,33 @@ título** e **buscar o PU sozinho**. Plano em três branches; esta é a primeira
     o que fazer no bundle do browser. `lib/tesouro.ts` só fala com a rede e
     devolve texto cru — mesma divisão de `lib/yahoo.ts` / `lib/quotes.ts`.
 
+- ✅ **`feat/treasury-net-value`** — **valor líquido** do título: o que chegaria
+  na conta se resgatasse hoje. Decisão no
+  **[ADR-012](docs/adr/ADR-012-valor-liquido-tesouro-estimado.md)**.
+  - **Calculado por LOTE, não pela posição.** A alíquota de IR depende da idade de
+    **cada compra** (22,5% até 180d · 20% até 360d · 17,5% até 720d · 15% acima),
+    então `buildPosition` (custo médio) não serve: aplicar uma alíquota só a uma
+    base média erra sempre que a posição atravessa uma faixa. `treasuryNetValue`
+    percorre as compras uma a uma. Só é simples porque **vendas foram cortadas** —
+    todo lote ainda está em carteira e não há FIFO. Se vendas voltarem, essa
+    função precisa saber quais lotes saíram.
+  - **Ordem legal das deduções:** IOF primeiro (tabela dos 30 primeiros dias, 96%
+    no dia 1 até 0% no dia 30), IR sobre **o que sobra** dele. Lote no prejuízo não
+    paga nada e não gera crédito contra os outros.
+  - **A taxa B3 é a única parte de fato aproximada:** 0,20% a.a. pro-rata sobre a
+    **média entre investido e bruto**, com a isenção do **Selic até R$ 10.000**
+    rateada entre os lotes. Medida contra o extrato real: **R$ 4,29 vs R$ 4,18**
+    cobrados (2,6%). Exatidão exigiria a série histórica de PU do título.
+  - **O líquido NÃO entra na coluna "Resultado"**, que segue bruta para uma ação e
+    um título continuarem comparáveis nela. `positionValueCents` e as metas de
+    alocação também seguem no bruto — alocação é sobre patrimônio, não sobre o que
+    sobraria num resgate.
+  - Validado contra o extrato do Tesouro **ao centavo** no IR (674 dias → 17,5% →
+    R$ 21,27 vs R$ 21,26) e a menos de R$ 0,30 no líquido, com a diferença toda
+    vindo da estimativa da B3.
+  - **Não é apuração, é previsão:** assume resgate hoje ao preço de hoje, e o IPCA
+    que corrigirá o título no resgate real nem foi publicado. O painel diz isso.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de

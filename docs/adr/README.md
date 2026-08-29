@@ -17,3 +17,4 @@ Registros curtos das decisões técnicas relevantes do projeto. Cada ADR respond
 | [ADR-009](ADR-009-nota-do-ativo-e-sugestao-de-aporte.md) | Nota do ativo por checklist e sugestão de aporte por lacuna | accepted |
 | [ADR-010](ADR-010-cotacoes-automaticas.md) | Cotações automáticas via Yahoo Finance, sob botão e só em reais | accepted |
 | [ADR-011](ADR-011-cotacoes-tesouro-direto.md) | Cotações do Tesouro Direto pelo arquivo diário do Tesouro Transparente | accepted |
+| [ADR-012](ADR-012-valor-liquido-tesouro-estimado.md) | Valor líquido do Tesouro como estimativa, calculada por lote de compra | accepted |

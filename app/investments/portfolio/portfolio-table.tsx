@@ -16,7 +16,7 @@
 import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Money } from '@/components/money'
-import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS } from '@/lib/constants'
+import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS, type TreasuryKind } from '@/lib/constants'
 import { formatBRL, formatDate, formatPriceBRL, formatQuantity } from '@/lib/format'
 import {
   isPriceStale,
@@ -30,6 +30,7 @@ import { ScoreCell } from './score-cell'
 import type { ScoreSheetAsset } from './score-sheet'
 import { PurchaseRowActions } from './purchase-row-actions'
 import { QuoteCell } from './quote-cell'
+import { paysCoupons, treasuryNetValue } from '@/lib/treasury'
 
 /** One operation as the drill-down shows it (id included, for the React key). */
 export type OperationRow = Operation & { id: string }
@@ -222,7 +223,12 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
                 {open && (
                   <tr className="border-b border-cofre-border/60">
                     <td colSpan={10} className="bg-cofre-panel px-4 py-4">
-                      <OperationsPanel ticker={row.ticker} operations={row.operations} />
+                      <OperationsPanel
+                        ticker={row.ticker}
+                        operations={row.operations}
+                        row={row}
+                        now={now}
+                      />
                     </td>
                   </tr>
                 )}
@@ -244,9 +250,13 @@ export function PortfolioTable({ rows, now }: { rows: PortfolioRow[]; now: Date 
 function OperationsPanel({
   ticker,
   operations,
+  row,
+  now,
 }: {
   ticker: string
   operations: OperationRow[]
+  row: PortfolioRow
+  now: Date
 }) {
   if (operations.length === 0) {
     return <p className="text-xs text-cofre-faint">Nenhuma compra registrada.</p>
@@ -254,7 +264,26 @@ function OperationsPanel({
 
   const ordered = [...operations].sort((a, b) => b.date.getTime() - a.date.getTime())
 
+  // Only a Tesouro bond has withholding to show. Everything else keeps the plain
+  // list of purchases it always had.
+  const tax =
+    row.treasuryKind === null
+      ? null
+      : treasuryNetValue(
+          row.treasuryKind,
+          operations.filter((operation) => operation.type === 'buy'),
+          row.currentPriceCents,
+          now,
+        )
+
+  // The income-tax rate belongs to the PURCHASE, not to the position: a lot
+  // bought last month and one bought three years ago are taxed differently.
+  const rateByDate = new Map(
+    (tax?.lots ?? []).map((lotTax) => [lotTax.date.getTime(), lotTax]),
+  )
+
   return (
+    <div className="space-y-3">
     <div className="overflow-hidden rounded-md border border-cofre-border bg-cofre-card">
       <table className="w-full text-xs">
         <thead>
@@ -263,6 +292,9 @@ function OperationsPanel({
             <th className="px-3 py-2 text-right font-semibold">Preço de Compra</th>
             <th className="px-3 py-2 text-right font-semibold">Quantidade</th>
             <th className="px-3 py-2 text-right font-semibold">Total</th>
+            {tax !== null && (
+              <th className="px-3 py-2 text-right font-semibold">IR previsto</th>
+            )}
             <th className="px-3 py-2" />
           </tr>
         </thead>
@@ -282,6 +314,26 @@ function OperationsPanel({
               <td className="px-3 py-2 text-right font-semibold tabular-nums text-cofre-text">
                 {formatBRL(operation.totalCents)}
               </td>
+              {tax !== null && (
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {(() => {
+                    const lotTax = rateByDate.get(operation.date.getTime())
+                    if (lotTax === undefined) return <span className="text-cofre-faint">—</span>
+                    return (
+                      <>
+                        {formatBRL(lotTax.irCents)}{' '}
+                        <span className="text-cofre-faint">
+                          ({(lotTax.irRate * 100).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                          % · {lotTax.days}d)
+                        </span>
+                      </>
+                    )
+                  })()}
+                </td>
+              )}
               <td className="px-3 py-1.5">
                 <PurchaseRowActions
                   purchase={{
@@ -298,6 +350,80 @@ function OperationsPanel({
           ))}
         </tbody>
       </table>
+    </div>
+
+      {tax !== null && <NetValuePanel tax={tax} kind={row.treasuryKind!} />}
+    </div>
+  )
+}
+
+// What a Tesouro position would actually pay out today: the gross value minus
+// everything withheld on a redemption.
+//
+// This lives in the unfolded panel and NOT in the "Resultado" column on purpose.
+// That column has to mean one thing across every row, so a bond and a share stay
+// comparable in it — and for a share there is no withholding to net out. The tax
+// only makes sense once you are looking at this bond in particular.
+//
+// Every number here is an ESTIMATE, and the footnote says so. The custody fee
+// accrues daily on a price that moved every one of those days, which no stored
+// data can reproduce; income tax is exact in its rate but assumes a redemption
+// TODAY, at today's price.
+function NetValuePanel({
+  tax,
+  kind,
+}: {
+  tax: NonNullable<ReturnType<typeof treasuryNetValue>>
+  kind: TreasuryKind
+}) {
+  const line = (label: string, cents: number, negative = false) => (
+    <div className="flex items-baseline justify-between gap-4">
+      <span className="text-cofre-muted">{label}</span>
+      <span className="tabular-nums text-cofre-text">
+        {negative && cents > 0 ? '− ' : ''}
+        {formatBRL(cents)}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="rounded-md border border-cofre-border bg-cofre-card p-3 text-xs">
+      <p className="mb-2 font-semibold uppercase tracking-wider text-cofre-faint">
+        Se resgatasse hoje
+      </p>
+
+      <div className="space-y-1">
+        {line('Valor bruto', tax.grossCents)}
+        {tax.iofCents > 0 && line('IOF', tax.iofCents, true)}
+        {line('Imposto de renda', tax.irCents, true)}
+        {line('Taxa de custódia B3', tax.custodyCents, true)}
+
+        <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-cofre-border pt-2">
+          <span className="font-semibold text-cofre-text">Valor líquido</span>
+          <span className="font-semibold tabular-nums text-cofre-text">
+            {formatBRL(tax.netCents)}
+          </span>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="text-cofre-muted">Resultado líquido</span>
+          <Money cents={tax.netCents - tax.investedCents} colored />
+        </div>
+      </div>
+
+      <p className="mt-3 text-cofre-faint">
+        IR e taxa B3 são <strong>previstos</strong>: assumem resgate hoje, ao preço de
+        hoje. A taxa de custódia é uma estimativa — ela acumula todo dia sobre um preço
+        que variou.
+      </p>
+
+      {/* The one case where the number on screen is knowably too low. */}
+      {paysCoupons(kind) && (
+        <p className="mt-2 rounded bg-cofre-amberdim px-2 py-1.5 text-cofre-amber">
+          Este título paga juros semestrais e o app não registra cupons recebidos — o
+          resultado acima está menor que o real.
+        </p>
+      )}
     </div>
   )
 }
