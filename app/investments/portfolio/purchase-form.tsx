@@ -20,9 +20,17 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ASSET_TYPES, ASSET_TYPE_LABELS, type AssetType } from '@/lib/constants'
+import {
+  ASSET_TYPES,
+  ASSET_TYPE_LABELS,
+  TREASURY_KINDS,
+  TREASURY_KIND_NAMES,
+  type AssetType,
+  type TreasuryKind,
+} from '@/lib/constants'
 import { formatBRL, parsePriceToCents, parseQuantity } from '@/lib/format'
 import { purchaseSchema } from '@/lib/asset-schema'
+import { paysCoupons, treasuryTicker } from '@/lib/treasury'
 import { recordPurchase } from './actions'
 
 function today(): string {
@@ -35,10 +43,17 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const [ticker, setTicker] = useState('')
   const [type, setType] = useState<AssetType>('stock_br')
+  // Fixed income is identified by the bond, not by a ticker — see lib/treasury.
+  const [treasuryKind, setTreasuryKind] = useState<TreasuryKind>('selic')
+  const [maturityDate, setMaturityDate] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unitPrice, setUnitPrice] = useState('')
   const [date, setDate] = useState(today())
   const [error, setError] = useState<string | null>(null)
+
+  // A Tesouro bond has no ticker to type: the user picks WHICH bond and WHEN it
+  // matures, and the name is generated from that pair.
+  const isTreasury = type === 'fixed_income'
 
   // Live preview of what will be recorded — the same arithmetic the server
   // does, shown so the user can catch a typo before saving.
@@ -53,9 +68,14 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
     event.preventDefault()
     setError(null)
 
+    // The two branches of the schema take different identity fields, so the
+    // payload is built to match the one this asset belongs to.
+    const identity = isTreasury
+      ? { type, treasuryKind, maturityDate }
+      : { type, ticker }
+
     const parsed = purchaseSchema.safeParse({
-      ticker,
-      type,
+      ...identity,
       quantity: parsedQuantity,
       unitPriceCents: parsedUnitPrice,
       date,
@@ -83,22 +103,8 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Type comes first: it decides what identifies the asset below it. */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={label} htmlFor="ticker">
-            Ticker
-          </label>
-          <input
-            id="ticker"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            placeholder="PETR4"
-            className={field}
-            autoComplete="off"
-            autoFocus
-          />
-        </div>
-
         <div>
           <label className={label} htmlFor="assetType">
             Tipo
@@ -108,6 +114,7 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
             value={type}
             onChange={(e) => setType(e.target.value as AssetType)}
             className={field}
+            autoFocus
           >
             {ASSET_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -116,7 +123,58 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
             ))}
           </select>
         </div>
+
+        {!isTreasury && (
+          <div>
+            <label className={label} htmlFor="ticker">
+              Ticker
+            </label>
+            <input
+              id="ticker"
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              placeholder="PETR4"
+              className={field}
+              autoComplete="off"
+            />
+          </div>
+        )}
       </div>
+
+      {isTreasury && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={label} htmlFor="treasuryKind">
+              Título
+            </label>
+            <select
+              id="treasuryKind"
+              value={treasuryKind}
+              onChange={(e) => setTreasuryKind(e.target.value as TreasuryKind)}
+              className={field}
+            >
+              {TREASURY_KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {TREASURY_KIND_NAMES[kind]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={label} htmlFor="maturityDate">
+              Vencimento
+            </label>
+            <input
+              id="maturityDate"
+              type="date"
+              value={maturityDate}
+              onChange={(e) => setMaturityDate(e.target.value)}
+              className={field}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -135,7 +193,7 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className={label} htmlFor="unitPrice">
-            Preço de compra
+            {isTreasury ? 'Preço do título' : 'Preço de compra'}
           </label>
           <input
             id="unitPrice"
@@ -160,6 +218,27 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
           className={field}
         />
       </div>
+
+      {/* The generated name, shown live: the user never types it, so this is
+          how they confirm they picked the right bond before saving. */}
+      {isTreasury && maturityDate && (
+        <p className="text-xs text-cofre-muted">
+          Será registrado como{' '}
+          <span className="font-semibold text-cofre-text">
+            {treasuryTicker(treasuryKind, new Date(`${maturityDate}T00:00:00.000Z`))}
+          </span>
+        </p>
+      )}
+
+      {/* Coupons paid before maturity are not tracked by this app, so a bond
+          that pays them will read lower than reality. Saying so here beats
+          showing a wrong number silently. */}
+      {isTreasury && paysCoupons(treasuryKind) && (
+        <p className="rounded-md bg-cofre-amberdim px-3 py-2 text-xs text-cofre-amber">
+          Este título paga juros semestrais, e o app ainda não registra cupons
+          recebidos — o resultado dele vai aparecer menor do que o real.
+        </p>
+      )}
 
       <p className="text-xs text-cofre-faint">
         {previewTotal === null

@@ -16,7 +16,7 @@
 //   * currentPriceCents / avgPriceCents — cents per unit, may be FRACTIONAL
 // Tests live in lib/portfolio.test.ts.
 
-import type { AssetType, AssetOperationType } from '@/lib/constants'
+import type { AssetType, AssetOperationType, TreasuryKind } from '@/lib/constants'
 import { ASSET_TYPE_LABELS, ASSET_TYPE_COLORS } from '@/lib/constants'
 
 // Below this, a leftover quantity is floating-point noise, not a holding.
@@ -39,6 +39,12 @@ export type AssetInfo = {
   type: AssetType
   currentPriceCents: number | null // cents per unit, may be fractional
   priceUpdatedAt: Date | null
+  // Fixed income only — both null on every other type. The pair IS the bond's
+  // identity, and `ticker` above is generated from it (see lib/treasury.ts).
+  // Carried through the position so the edit modal can prefill the two fields
+  // that actually name the row, instead of a ticker nobody typed.
+  treasuryKind: TreasuryKind | null
+  maturityDate: Date | null
 }
 
 /** What the portfolio screens render for one asset. */

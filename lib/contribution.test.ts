@@ -28,6 +28,8 @@ function position(
     type,
     currentPriceCents: priced ? 100 : null,
     priceUpdatedAt: null,
+    treasuryKind: null,
+    maturityDate: null,
     quantity: options.closed ? 0 : valueCents / 100,
     investedCents: options.closed ? 0 : valueCents,
     avgPriceCents: options.closed ? null : 100,

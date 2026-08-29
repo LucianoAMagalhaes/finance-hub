@@ -10,6 +10,17 @@ import {
   quoteSchema,
 } from '@/lib/asset-schema'
 
+// Both schemas are unions now (a market asset is named by its ticker, a Tesouro
+// bond by its kind + maturity). Most tests here exercise the market branch, and
+// this narrows the parse result to it — failing loudly if the wrong branch ever
+// matched, which is itself worth catching.
+function market<T extends { type: string }>(parsed: T): Extract<T, { ticker: string }> {
+  if (parsed.type === 'fixed_income') {
+    throw new Error('esperava o branch de ativo de mercado')
+  }
+  return parsed as Extract<T, { ticker: string }>
+}
+
 const validAsset = { ticker: 'petr4', type: 'stock_br' }
 const validPurchase = {
   ticker: 'petr4',
@@ -27,7 +38,7 @@ const validOperation = {
 
 describe('assetSchema', () => {
   it('trims and uppercases the ticker', () => {
-    const parsed = assetSchema.parse({ ...validAsset, ticker: '  petr4 ' })
+    const parsed = market(assetSchema.parse({ ...validAsset, ticker: '  petr4 ' }))
     expect(parsed.ticker).toBe('PETR4')
   })
 
@@ -109,7 +120,7 @@ describe('quoteSchema', () => {
 
 describe('purchaseSchema', () => {
   it('accepts what the purchase form sends', () => {
-    const parsed = purchaseSchema.parse({ ...validPurchase, ticker: ' petr4 ' })
+    const parsed = market(purchaseSchema.parse({ ...validPurchase, ticker: ' petr4 ' }))
     expect(parsed.ticker).toBe('PETR4')
     expect(parsed.quantity).toBe(10)
     expect(parsed.unitPriceCents).toBe(3850)
@@ -141,5 +152,49 @@ describe('purchaseSchema', () => {
     expect(purchaseSchema.safeParse({ ...validPurchase, date: '21/08/2026' }).success).toBe(
       false,
     )
+  })
+})
+
+describe('purchaseSchema — Tesouro Direto', () => {
+  const validBond = {
+    type: 'fixed_income',
+    treasuryKind: 'ipca',
+    maturityDate: '2035-05-15',
+    quantity: 0.5,
+    unitPriceCents: 220382,
+    date: '2024-10-23',
+  }
+
+  it('accepts a bond identified by kind and maturity', () => {
+    const parsed = purchaseSchema.parse(validBond)
+    expect(parsed.type).toBe('fixed_income')
+    if (parsed.type !== 'fixed_income') throw new Error('branch errado')
+    expect(parsed.treasuryKind).toBe('ipca')
+    expect(parsed.maturityDate).toBe('2035-05-15')
+  })
+
+  it('rejects a bond without a maturity — it is half of the bond identity', () => {
+    const withoutMaturity = { ...validBond, maturityDate: undefined }
+    expect(purchaseSchema.safeParse(withoutMaturity).success).toBe(false)
+  })
+
+  it('rejects a malformed maturity', () => {
+    expect(
+      purchaseSchema.safeParse({ ...validBond, maturityDate: '15/05/2035' }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a bond kind the app does not know', () => {
+    expect(
+      purchaseSchema.safeParse({ ...validBond, treasuryKind: 'tesouro_ouro' }).success,
+    ).toBe(false)
+  })
+
+  it('requires a ticker for a market asset, and none for a bond', () => {
+    // The whole point of the union: neither branch accepts the other's shape.
+    expect(
+      purchaseSchema.safeParse({ ...validPurchase, ticker: undefined }).success,
+    ).toBe(false)
+    expect(purchaseSchema.safeParse(validBond).success).toBe(true)
   })
 })

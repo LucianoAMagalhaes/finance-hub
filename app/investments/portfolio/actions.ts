@@ -33,6 +33,8 @@ import {
   purchaseSchema,
   quoteSchema,
 } from '@/lib/asset-schema'
+import { treasuryTicker } from '@/lib/treasury'
+import type { AssetType, TreasuryKind } from '@/lib/constants'
 
 // Shared result shape used by all the actions (same as the other features).
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -68,6 +70,41 @@ function purchaseTotalCents(quantity: number, unitPriceCents: number): number {
   return Math.round(quantity * unitPriceCents)
 }
 
+// What identifies an asset row, in the shape the database stores it.
+//
+// The two kinds of asset are named differently and this is the ONE place that
+// knows how: a market asset carries the ticker the user typed, while a Tesouro
+// bond carries its (kind, maturity) pair and gets its `ticker` GENERATED from
+// them. Deriving the name in a single function is what keeps it impossible for
+// a row to say "Tesouro IPCA+ 2035" while pointing at a 2040 maturity.
+type AssetIdentity = {
+  ticker: string
+  treasuryKind: TreasuryKind | null
+  maturityDate: Date | null
+}
+
+// Either branch of the parsed asset/purchase union — the fields that name the
+// asset, ignoring whatever else came along (quote, quantity, price).
+type ParsedIdentity =
+  | { type: 'fixed_income'; treasuryKind: TreasuryKind; maturityDate: string }
+  | { type: Exclude<AssetType, 'fixed_income'>; ticker: string }
+
+function assetIdentityFrom(parsed: ParsedIdentity): AssetIdentity {
+  if (parsed.type === 'fixed_income') {
+    const maturityDate = toUtcMidnight(parsed.maturityDate)
+    return {
+      ticker: treasuryTicker(parsed.treasuryKind, maturityDate),
+      treasuryKind: parsed.treasuryKind,
+      maturityDate,
+    }
+  }
+
+  // Nulls are not decoration: they CLEAR the treasury columns when an asset is
+  // edited from fixed income into something else, so a stale maturity can never
+  // outlive the bond it belonged to.
+  return { ticker: parsed.ticker, treasuryKind: null, maturityDate: null }
+}
+
 /**
  * Records a purchase, creating the asset the first time that ticker appears.
  *
@@ -90,7 +127,8 @@ export async function recordPurchase(input: unknown): Promise<ActionResult> {
   const parsed = purchaseSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) }
 
-  const { ticker, type, quantity, unitPriceCents, date } = parsed.data
+  const { type, quantity, unitPriceCents, date } = parsed.data
+  const identity = assetIdentityFrom(parsed.data)
 
   const totalCents = purchaseTotalCents(quantity, unitPriceCents)
   if (totalCents <= 0) {
@@ -103,14 +141,14 @@ export async function recordPurchase(input: unknown): Promise<ActionResult> {
     await prisma.$transaction(async (tx) => {
       // Reuse the line when this ticker is already in the portfolio.
       const existing = await tx.asset.findFirst({
-        where: { userId: user.id, ticker },
+        where: { userId: user.id, ticker: identity.ticker },
         select: { id: true },
       })
 
       const asset =
         existing ??
         (await tx.asset.create({
-          data: { userId: user.id, ticker, type },
+          data: { userId: user.id, type, ...identity },
           select: { id: true },
         }))
 
@@ -173,10 +211,16 @@ export async function updateAsset(id: string, input: unknown): Promise<ActionRes
     })
     if (!current) return { ok: false, error: 'Ativo não encontrado.' }
 
+    // The identity columns are written EXPLICITLY rather than spread, so that
+    // changing an asset's type also clears the columns the old type used.
+    const identity = assetIdentityFrom(parsed.data)
+
     const result = await prisma.asset.updateMany({
       where: { id, userId: user.id },
       data: {
-        ...parsed.data,
+        type: parsed.data.type,
+        ...identity,
+        currentPriceCents: parsed.data.currentPriceCents,
         priceUpdatedAt: nextPriceStamp(current, parsed.data.currentPriceCents),
       },
     })
@@ -187,7 +231,7 @@ export async function updateAsset(id: string, input: unknown): Promise<ActionRes
     return { ok: true }
   } catch (error) {
     if (isPrismaError(error, 'P2002')) {
-      return { ok: false, error: 'Você já tem esse ticker na carteira.' }
+      return { ok: false, error: 'Você já tem esse ativo na carteira.' }
     }
     console.error('updateAsset failed:', error)
     return { ok: false, error: 'Não foi possível salvar o ativo.' }

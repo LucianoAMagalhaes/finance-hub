@@ -50,6 +50,8 @@ export default async function PortfolioPage() {
         currentPriceCents: true,
         priceUpdatedAt: true,
         manualScore: true,
+        treasuryKind: true,
+        maturityDate: true,
       },
       orderBy: { ticker: 'asc' },
     }),

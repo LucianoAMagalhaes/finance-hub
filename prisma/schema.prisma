@@ -177,6 +177,25 @@ enum AssetOperationType {
   sell
 }
 
+// Which Tesouro Direto bond a fixed_income asset is. Null on every other type.
+//
+// These eight are the whole universe the Tesouro offers, and the pair
+// (kind, maturityDate) is the bond's IDENTITY: no maturity year repeats inside a
+// kind, so the two together name exactly one bond. The `+` and the spaces of the
+// official names ("Tesouro IPCA+ com Juros Semestrais") cannot live in a Prisma
+// enum, so the exact strings are mapped in lib/treasury.ts — the one place in
+// the app that speaks the Tesouro's vocabulary.
+enum TreasuryKind {
+  selic
+  prefixado
+  prefixado_semiannual
+  ipca
+  ipca_semiannual
+  igpm_semiannual
+  renda_mais
+  educa_mais
+}
+
 // Which checklist a question belongs to. An asset's type decides which one it
 // is graded by: stock_br and stock_intl share the `stocks` list, fii uses
 // `fiis`, and crypto/fixed_income have no checklist at all (manual score).
@@ -210,6 +229,16 @@ model Asset {
   // (crypto, fixed_income). Same scale as the derived checklist score so the
   // "Nota" column reads the same for every line. Null = not graded yet.
   manualScore Int? @map("manual_score")
+
+  // Fixed-income identity. Both are null for every other asset type.
+  //
+  // A Tesouro bond has no ticker the user could type: its name is derived from
+  // these two by treasuryTicker() in lib/treasury.ts, so `ticker` above stays
+  // the line's identity while being READABLE ("Tesouro IPCA+ 2035") instead of a
+  // 12-character abbreviation that matches no data source. They are also the key
+  // that finds the bond's daily price in the Tesouro Transparente file.
+  treasuryKind TreasuryKind? @map("treasury_kind")
+  maturityDate DateTime?     @map("maturity_date")
 
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
