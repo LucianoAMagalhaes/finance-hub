@@ -135,6 +135,125 @@ export async function fetchYahooQuotes(
   return results
 }
 
+/** The slice of Yahoo's historical response this app reads. */
+type YahooHistoryResponse = {
+  chart?: {
+    result?:
+      | {
+          timestamp?: number[] | null
+          indicators?: { quote?: { close?: (number | null)[] | null }[] | null }
+        }[]
+      | null
+    error?: { code?: string; description?: string } | null
+  }
+}
+
+// How far back to look for a close when the requested day has none. Ten days
+// covers a long weekend plus a holiday stretch without pulling a whole year.
+const HISTORY_LOOKBACK_DAYS = 10
+
+// Reads a timestamp as the calendar day Yahoo means by it.
+function utcDay(seconds: number): string {
+  return new Date(seconds * 1000).toISOString().slice(0, 10)
+}
+
+/**
+ * The closing value of a symbol on a given day — or on the most recent trading
+ * day before it.
+ *
+ * The fallback is the point: a purchase made on a Saturday has no exchange rate
+ * of its own, and refusing to record it would be absurd. Friday's close is what
+ * the market last said, and it is what any broker would use.
+ *
+ * Used for USDBRL=X, to convert a purchase made in dollars at the rate of the day
+ * it happened (see ADR-013) — which is what makes the return shown in reais
+ * include the dollar's own movement.
+ *
+ * @param symbol - A Yahoo symbol, e.g. "USDBRL=X".
+ * @param date - The day wanted.
+ * @returns The close, or null when the window holds no usable value.
+ * @throws YahooError when the request itself cannot be made.
+ */
+export async function fetchYahooCloseOn(
+  symbol: string,
+  date: Date,
+): Promise<number | null> {
+  // The window ends the day AFTER the target, because period2 is exclusive of
+  // the day it lands in for daily candles.
+  const end = new Date(date.getTime() + 86_400_000)
+  const start = new Date(date.getTime() - HISTORY_LOOKBACK_DAYS * 86_400_000)
+  const period1 = Math.floor(start.getTime() / 1000)
+  const period2 = Math.floor(end.getTime() / 1000)
+
+  let response: Response
+  try {
+    response = await fetch(
+      `${YAHOO_CHART_URL}/${encodeURIComponent(symbol)}?interval=1d&period1=${period1}&period2=${period2}`,
+      {
+        headers: { 'User-Agent': USER_AGENT },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      },
+    )
+  } catch (error) {
+    const reason =
+      error instanceof Error && error.name === 'TimeoutError' ? 'demorou demais' : 'falhou'
+    throw new YahooError(
+      `Não foi possível buscar a cotação do dólar (a conexão ${reason}). Verifique sua internet e tente de novo.`,
+    )
+  }
+
+  if (response.status === 404) return null
+  if (!response.ok) {
+    throw new YahooError(
+      `O Yahoo Finance respondeu com erro ${response.status} ao buscar o câmbio.`,
+    )
+  }
+
+  let payload: YahooHistoryResponse
+  try {
+    payload = (await response.json()) as YahooHistoryResponse
+  } catch {
+    throw new YahooError('O Yahoo Finance respondeu algo que não é JSON.')
+  }
+
+  return pickCloseOnOrBefore(payload, date)
+}
+
+/**
+ * The last close at or before `date` in a historical payload.
+ *
+ * Split out from the fetch so the "weekend falls back to Friday" rule can be
+ * tested against a fixture, with no network — the same split as everything else
+ * in lib/quotes.ts.
+ *
+ * @param payload - Yahoo's chart response.
+ * @param date - The day wanted.
+ */
+export function pickCloseOnOrBefore(
+  payload: YahooHistoryResponse,
+  date: Date,
+): number | null {
+  const result = payload.chart?.result?.[0]
+  const timestamps = result?.timestamp
+  const closes = result?.indicators?.quote?.[0]?.close
+  if (!Array.isArray(timestamps) || !Array.isArray(closes)) return null
+
+  const wanted = date.toISOString().slice(0, 10)
+  let best: number | null = null
+
+  // Yahoo returns the window in chronological order, so the last candle that is
+  // still on or before the target day is the one wanted. A null close means the
+  // market was shut that day and the next candidate back should win.
+  for (let i = 0; i < timestamps.length; i += 1) {
+    if (utcDay(timestamps[i]) > wanted) break
+    const close = closes[i]
+    if (typeof close === 'number' && Number.isFinite(close) && close > 0) best = close
+  }
+
+  return best
+}
+
 /**
  * One symbol, with one retry if the endpoint throttles the first attempt.
  *

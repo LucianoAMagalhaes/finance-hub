@@ -11,7 +11,8 @@
 //
 // Tests live in lib/quotes.test.ts.
 
-import type { AssetType, TreasuryKind } from '@/lib/constants'
+import { PURCHASE_CURRENCIES } from '@/lib/constants'
+import type { AssetType, TreasuryKind, PurchaseCurrency } from '@/lib/constants'
 import type { YahooQuote } from '@/lib/yahoo'
 import { treasuryKindFromName } from '@/lib/treasury'
 
@@ -110,6 +111,51 @@ export function realsToCents(reais: number): number | null {
   // A positive price that rounds to zero cannot be stored as a quote: the column
   // stops at six decimals, and a stored 0 would read as "this is worthless".
   return cents === 0 ? null : cents
+}
+
+/**
+ * The foreign currencies this app knows how to convert into reais.
+ *
+ * A CLOSED list, and it has to stay closed. Yahoo reports the currency of every
+ * symbol, and converting whatever comes back by "the rate for that code" is one
+ * step away from being wrong by a factor of 100: London quotes in **GBp** —
+ * pence, not pounds — and Johannesburg in ZAc. Anything not listed here is
+ * refused rather than guessed, which costs the user a quote and never costs them
+ * a wrong number.
+ */
+// Derived from the purchase currencies rather than written out again: the two
+// are the same promise seen from two sides — what the user may type in, and what
+// a provider may answer in — and letting them drift would mean accepting a
+// purchase the quote refresh could not price.
+export const SUPPORTED_FX = PURCHASE_CURRENCIES.filter(
+  (currency): currency is Exclude<PurchaseCurrency, 'BRL'> => currency !== 'BRL',
+)
+export type SupportedCurrency = (typeof SUPPORTED_FX)[number]
+
+/**
+ * True when this app can convert amounts in that currency into reais.
+ *
+ * @param currency - A currency code as a provider reports it.
+ */
+export function isSupportedCurrency(currency: string): currency is SupportedCurrency {
+  return (SUPPORTED_FX as readonly string[]).includes(currency)
+}
+
+/**
+ * Converts an amount in a foreign currency's cents into cents of BRL.
+ *
+ * Money that actually moved is an INTEGER of cents everywhere in this app
+ * (ADR-005), so the result is rounded to an integer — once, at the end, which is
+ * the only rounding in the whole conversion.
+ *
+ * @param amountCents - The amount, in cents of the foreign currency (US$ 96,59
+ *                      is 9659).
+ * @param rate - How many reais one unit of that currency is worth (5.2054).
+ * @returns The same amount in cents of BRL, or null when the rate is unusable.
+ */
+export function foreignToBrlCents(amountCents: number, rate: number): number | null {
+  if (!Number.isFinite(amountCents) || !Number.isFinite(rate) || rate <= 0) return null
+  return Math.round(amountCents * rate)
 }
 
 /**

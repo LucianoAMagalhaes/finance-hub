@@ -18,20 +18,23 @@
 // not a field — the server derives it from quantity × price, so there is never a
 // second number that could disagree.
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ASSET_TYPES,
   ASSET_TYPE_LABELS,
+  PURCHASE_CURRENCIES,
+  PURCHASE_CURRENCY_SYMBOLS,
   TREASURY_KINDS,
   TREASURY_KIND_NAMES,
   type AssetType,
+  type PurchaseCurrency,
   type TreasuryKind,
 } from '@/lib/constants'
-import { formatBRL, parsePriceToCents, parseQuantity } from '@/lib/format'
+import { formatBRL, formatDate, parsePriceToCents, parseQuantity } from '@/lib/format'
 import { purchaseSchema } from '@/lib/asset-schema'
 import { paysCoupons, treasuryTicker } from '@/lib/treasury'
-import { recordPurchase } from './actions'
+import { lookupFxRate, recordPurchase } from './actions'
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
@@ -49,20 +52,66 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
   const [quantity, setQuantity] = useState('')
   const [unitPrice, setUnitPrice] = useState('')
   const [date, setDate] = useState(today())
+  const [currency, setCurrency] = useState<PurchaseCurrency>('BRL')
+  // The rate the preview found for `date`, and whatever went wrong looking it up.
+  const [fxRate, setFxRate] = useState<number | null>(null)
+  const [fxError, setFxError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // A Tesouro bond has no ticker to type: the user picks WHICH bond and WHEN it
   // matures, and the name is generated from that pair.
   const isTreasury = type === 'fixed_income'
+  // Only a foreign share can have been bought in another currency. A Tesouro
+  // bond and a B3 share are always in reais.
+  const canBeForeign = type === 'stock_intl'
+  const isForeign = canBeForeign && currency !== 'BRL'
+
+  // Switching to a type that cannot be foreign must not leave a stale currency
+  // behind, or a B3 purchase would silently carry "USD".
+  useEffect(() => {
+    if (!canBeForeign) setCurrency('BRL')
+  }, [canBeForeign])
+
+  // The preview rate, refreshed whenever the currency or the date changes.
+  //
+  // This is for the USER's eyes only. The Server Action looks the rate up again
+  // when saving, so nothing here can influence what is stored — same reason the
+  // total is derived on the server rather than sent from the browser.
+  useEffect(() => {
+    if (!isForeign || date === '') {
+      setFxRate(null)
+      setFxError(null)
+      return
+    }
+
+    // `cancelled` guards against a slow answer for an old date landing after a
+    // newer one: the user can change the date faster than the network replies.
+    let cancelled = false
+    setFxError(null)
+    lookupFxRate(currency, date).then((result) => {
+      if (cancelled) return
+      if (result.ok) setFxRate(result.rate)
+      else {
+        setFxRate(null)
+        setFxError(result.error)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isForeign, currency, date])
 
   // Live preview of what will be recorded — the same arithmetic the server
   // does, shown so the user can catch a typo before saving.
   const parsedQuantity = parseQuantity(quantity)
   const parsedUnitPrice = parsePriceToCents(unitPrice)
+  // In reais the rate is 1; in dollars the total can only be previewed once the
+  // rate has arrived.
+  const previewRate = isForeign ? fxRate : 1
   const previewTotal =
-    parsedQuantity === null || parsedUnitPrice === null
+    parsedQuantity === null || parsedUnitPrice === null || previewRate === null
       ? null
-      : Math.round(parsedQuantity * parsedUnitPrice)
+      : Math.round(parsedQuantity * parsedUnitPrice * previewRate)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -72,7 +121,7 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
     // payload is built to match the one this asset belongs to.
     const identity = isTreasury
       ? { type, treasuryKind, maturityDate }
-      : { type, ticker }
+      : { type, ticker, currency }
 
     const parsed = purchaseSchema.safeParse({
       ...identity,
@@ -194,15 +243,41 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
         <div>
           <label className={label} htmlFor="unitPrice">
             {isTreasury ? 'Preço do título' : 'Preço de compra'}
+            {isForeign && (
+              <span className="text-cofre-faint">
+                {' '}
+                ({PURCHASE_CURRENCY_SYMBOLS[currency]})
+              </span>
+            )}
           </label>
-          <input
-            id="unitPrice"
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-            placeholder="R$ 38,50"
-            className={field}
-            inputMode="decimal"
-          />
+          <div className="flex gap-2">
+            <input
+              id="unitPrice"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
+              placeholder={isForeign ? '609,63' : 'R$ 38,50'}
+              className={field}
+              inputMode="decimal"
+            />
+
+            {/* A foreign share can be bought in dollars. The value is converted
+                to reais on the way into the database (ADR-013), so nothing
+                downstream ever sees a foreign amount. */}
+            {canBeForeign && (
+              <select
+                aria-label="Moeda da compra"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as PurchaseCurrency)}
+                className="rounded-md border border-cofre-border px-2 py-2 text-sm focus:border-cofre-jade focus:outline-none"
+              >
+                {PURCHASE_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {PURCHASE_CURRENCY_SYMBOLS[code]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </div>
 
@@ -237,6 +312,29 @@ export function PurchaseForm({ onSuccess }: { onSuccess?: () => void }) {
         <p className="rounded-md bg-cofre-amberdim px-3 py-2 text-xs text-cofre-amber">
           Este título paga juros semestrais, e o app ainda não registra cupons
           recebidos — o resultado dele vai aparecer menor do que o real.
+        </p>
+      )}
+
+      {/* What the dollar amount becomes in reais, and at which rate. Shown
+          because the stored value is the CONVERTED one — the user should see
+          the number that is about to be recorded, not just the one they typed.
+          The server looks the rate up again when saving, so this is a preview
+          and never the source of truth. */}
+      {isForeign && (
+        <p className="text-xs text-cofre-muted">
+          {fxError !== null ? (
+            <span className="text-cofre-amber">{fxError}</span>
+          ) : fxRate === null ? (
+            'Buscando o câmbio do dia da compra…'
+          ) : (
+            <>
+              Câmbio de {formatDate(new Date(`${date}T00:00:00.000Z`))}:{' '}
+              <span className="font-semibold text-cofre-text">
+                R$ {fxRate.toLocaleString('pt-BR', { minimumFractionDigits: 4 })}
+              </span>{' '}
+              por {PURCHASE_CURRENCY_SYMBOLS[currency]} 1,00
+            </>
+          )}
         </p>
       )}
 

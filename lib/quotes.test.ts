@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { formatRelativeDay } from '@/lib/format'
 import {
   brlQuoteToCents,
+  foreignToBrlCents,
+  isSupportedCurrency,
   parseTesouroPrices,
   quoteProviderFor,
   realsToCents,
@@ -311,5 +313,48 @@ describe('parseTesouroPrices — the Data Base is a local moment', () => {
       '\n',
     )
     expect(parseTesouroPrices(impossible)).toBeNull()
+  })
+})
+
+// --- Moeda estrangeira -------------------------------------------------------
+
+describe('foreignToBrlCents', () => {
+  it('converts a dollar amount into cents of real', () => {
+    // US$ 96,59 at 5,2054 = R$ 502,79.
+    expect(foreignToBrlCents(9659, 5.2054)).toBe(50279)
+  })
+
+  it('rounds once, at the end', () => {
+    // 16,46 x 6,0205 = 99,097... -> R$ 99,10, not 99,09 from a truncated step.
+    expect(foreignToBrlCents(1646, 6.0205)).toBe(9910)
+  })
+
+  it('refuses a rate that cannot be used, instead of guessing 1', () => {
+    // Falling back to 1 is precisely the bug this feature exists to fix: it
+    // would record dollars as reais.
+    expect(foreignToBrlCents(1000, 0)).toBeNull()
+    expect(foreignToBrlCents(1000, -5)).toBeNull()
+    expect(foreignToBrlCents(1000, Number.NaN)).toBeNull()
+    expect(foreignToBrlCents(1000, Number.POSITIVE_INFINITY)).toBeNull()
+  })
+})
+
+describe('isSupportedCurrency', () => {
+  it('accepts the dollar', () => {
+    expect(isSupportedCurrency('USD')).toBe(true)
+  })
+
+  it('refuses GBp — the trap that makes the list closed', () => {
+    // London quotes in PENCE, not pounds. Converting it by "the pound rate"
+    // would be wrong by a factor of 100, and silently so.
+    expect(isSupportedCurrency('GBp')).toBe(false)
+    expect(isSupportedCurrency('GBP')).toBe(false)
+    expect(isSupportedCurrency('EUR')).toBe(false)
+    expect(isSupportedCurrency('ZAc')).toBe(false)
+  })
+
+  it('does not treat the real as a foreign currency', () => {
+    // BRL needs no conversion, so it is not on the list of what can be converted.
+    expect(isSupportedCurrency('BRL')).toBe(false)
   })
 })

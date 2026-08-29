@@ -161,3 +161,26 @@ export const TREASURY_KINDS_WITH_COUPONS: readonly TreasuryKind[] = [
   'igpm_semiannual',
   'renda_mais',
 ]
+
+// --- Moeda -------------------------------------------------------------------
+// The currencies a purchase can be entered in.
+//
+// The database stays entirely in cents of BRL (ADR-005): a purchase made in
+// dollars is converted ON THE WAY IN, at the exchange rate of the day it
+// happened, and nothing downstream ever sees a foreign amount. See ADR-013.
+//
+// The list is deliberately short. Every currency added here is one the app
+// promises it can convert correctly, and getting that wrong is a factor-of-100
+// class of bug (see SUPPORTED_FX in lib/quotes.ts for the GBp trap).
+export const PURCHASE_CURRENCIES = ['BRL', 'USD'] as const
+export type PurchaseCurrency = (typeof PURCHASE_CURRENCIES)[number]
+
+export const PURCHASE_CURRENCY_SYMBOLS: Record<PurchaseCurrency, string> = {
+  BRL: 'R$',
+  USD: 'US$',
+}
+
+/** The Yahoo symbol that prices one unit of a currency in reais. */
+export const FX_SYMBOLS: Record<Exclude<PurchaseCurrency, 'BRL'>, string> = {
+  USD: 'USDBRL=X',
+}

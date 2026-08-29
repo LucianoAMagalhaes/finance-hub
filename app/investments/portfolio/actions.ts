@@ -19,10 +19,11 @@ import { prisma } from '@/lib/prisma'
 import { getLocalUser } from '@/lib/user'
 import { assetAnswersSchema, manualScoreSchema } from '@/lib/scoring-schema'
 import { scoreScopeFor } from '@/lib/scoring'
-import { fetchYahooQuotes, isYahooError } from '@/lib/yahoo'
+import { fetchYahooQuotes, fetchYahooCloseOn, isYahooError, YahooError } from '@/lib/yahoo'
 import { fetchTesouroPriceFile, isTesouroError, TesouroError } from '@/lib/tesouro'
 import {
   brlQuoteToCents,
+  isSupportedCurrency,
   parseTesouroPrices,
   quoteProviderFor,
   summarizeQuoteRun,
@@ -38,7 +39,8 @@ import {
   quoteSchema,
 } from '@/lib/asset-schema'
 import { treasuryTicker } from '@/lib/treasury'
-import type { AssetType, TreasuryKind } from '@/lib/constants'
+import { FX_SYMBOLS } from '@/lib/constants'
+import type { AssetType, TreasuryKind, PurchaseCurrency } from '@/lib/constants'
 
 // Shared result shape used by all the actions (same as the other features).
 export type ActionResult = { ok: true } | { ok: false; error: string }
@@ -70,8 +72,45 @@ function toUtcMidnight(date: string): Date {
 // The money that actually moved is an INTEGER of cents (ADR-005), derived here
 // and only here — no form ever sends a total that could disagree with the
 // quantity and the price shown next to it.
-function purchaseTotalCents(quantity: number, unitPriceCents: number): number {
-  return Math.round(quantity * unitPriceCents)
+function purchaseTotalCents(
+  quantity: number,
+  unitPriceCents: number,
+  fxRate = 1,
+): number {
+  // ONE rounding, at the very end. Converting the unit price first and
+  // multiplying after would round twice, and the cents would drift away from
+  // what the broker's statement says.
+  return Math.round(quantity * unitPriceCents * fxRate)
+}
+
+/**
+ * How many reais one unit of the purchase's currency was worth on its date.
+ *
+ * Reais are the base, so they cost nothing: rate 1, no network call. A foreign
+ * purchase is converted at the rate of the day it HAPPENED, not today's — which
+ * is what makes the return shown in reais include the currency's own movement,
+ * and is how a cost basis is computed for tax here (ADR-013).
+ *
+ * Throws rather than falling back to 1: recording a dollar amount as if it were
+ * reais is the exact bug this whole feature exists to fix, so failing loudly is
+ * the only safe outcome.
+ *
+ * @param currency - The currency the price was typed in.
+ * @param date - The purchase date, as "YYYY-MM-DD".
+ */
+async function fxRateForPurchase(
+  currency: PurchaseCurrency,
+  date: string,
+): Promise<number> {
+  if (currency === 'BRL') return 1
+
+  const rate = await fetchYahooCloseOn(FX_SYMBOLS[currency], toUtcMidnight(date))
+  if (rate === null || !Number.isFinite(rate) || rate <= 0) {
+    throw new YahooError(
+      `Não foi encontrada a cotação do ${currency} para ${date}. Tente outra data ou registre o valor em reais.`,
+    )
+  }
+  return rate
 }
 
 // What identifies an asset row, in the shape the database stores it.
@@ -133,14 +172,22 @@ export async function recordPurchase(input: unknown): Promise<ActionResult> {
 
   const { type, quantity, unitPriceCents, date } = parsed.data
   const identity = assetIdentityFrom(parsed.data)
-
-  const totalCents = purchaseTotalCents(quantity, unitPriceCents)
-  if (totalCents <= 0) {
-    return { ok: false, error: 'O total da compra ficou em R$ 0,00.' }
-  }
+  // Tesouro bonds are always in reais; only a market purchase carries a currency.
+  const currency = parsed.data.type === 'fixed_income' ? 'BRL' : parsed.data.currency
 
   try {
     const user = await getLocalUser()
+
+    // The SERVER looks the rate up, even though the form previewed one: the same
+    // rule that makes the server derive the total instead of trusting a number
+    // the browser computed. Throws when the rate cannot be had, which aborts the
+    // purchase — better than recording dollars as reais.
+    const fxRate = await fxRateForPurchase(currency, date)
+
+    const totalCents = purchaseTotalCents(quantity, unitPriceCents, fxRate)
+    if (totalCents <= 0) {
+      return { ok: false, error: 'O total da compra ficou em R$ 0,00.' }
+    }
 
     await prisma.$transaction(async (tx) => {
       // Reuse the line when this ticker is already in the portfolio.
@@ -171,8 +218,42 @@ export async function recordPurchase(input: unknown): Promise<ActionResult> {
     revalidatePath('/investments/portfolio')
     return { ok: true }
   } catch (error) {
+    // A YahooError here means the exchange rate could not be looked up, and it
+    // already carries a finished sentence saying so.
+    if (isYahooError(error)) return { ok: false, error: error.message }
     console.error('recordPurchase failed:', error)
     return { ok: false, error: 'Não foi possível registrar a compra.' }
+  }
+}
+
+/**
+ * The exchange rate of one day, for the purchase form to preview with.
+ *
+ * Exists ONLY so the user can see what a dollar purchase will become in reais
+ * before saving it. It is not what the save uses — recordPurchase looks the rate
+ * up again on the server, so a stale or tampered preview cannot change what gets
+ * stored.
+ *
+ * @param currency - The currency to price.
+ * @param date - The day wanted, as "YYYY-MM-DD".
+ */
+export async function lookupFxRate(
+  currency: string,
+  date: string,
+): Promise<{ ok: true; rate: number } | { ok: false; error: string }> {
+  if (!isSupportedCurrency(currency)) {
+    return { ok: false, error: 'Moeda não suportada.' }
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { ok: false, error: 'Data inválida.' }
+  }
+
+  try {
+    return { ok: true, rate: await fxRateForPurchase(currency, date) }
+  } catch (error) {
+    if (isYahooError(error)) return { ok: false, error: error.message }
+    console.error('lookupFxRate failed:', error)
+    return { ok: false, error: 'Não foi possível buscar o câmbio.' }
   }
 }
 
