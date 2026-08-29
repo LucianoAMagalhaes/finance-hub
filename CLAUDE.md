@@ -466,6 +466,40 @@ título** e **buscar o PU sozinho**. Planejada em três branches; a terceira foi
     não serve), e ele só é simples porque vendas foram cortadas — todo lote ainda
     está em carteira e não há FIFO a resolver.
 
+### Ativo em moeda estrangeira — 2026-08-29
+
+O IVV (`stock_intl`) tinha cinco compras gravadas **em dólar** numa coluna que
+significa centavos de real: a tela mostrava `R$ 96,59` onde o certo era
+`R$ 566,91`, e esse número entrava no total da carteira e na pizza de alocação.
+É a lacuna que o ADR-010 previu e deixou aberta.
+
+- ✅ **`feat/foreign-currency-purchase`** — compra pode ser digitada em **US$**, e
+  é convertida para real **na gravação**.
+  - **Nenhuma coluna nova, nenhuma migration.** O banco segue inteiramente em
+    centavos de real, então `lib/portfolio.ts`, `lib/contribution.ts`, os cards e
+    a pizza **não mudaram em nada**. Foi o que as duas decisões do usuário
+    (exibir só em real, converter na entrada) compraram.
+  - **Câmbio da data de CADA compra**, não o de hoje. Convertendo os dois lados
+    pela taxa atual o câmbio se cancela e a tela mostraria **+32,05%** — o retorno
+    em dólar com cifrão de real. Pela taxa de cada compra mostra **+17,11%**, que
+    é o que entrou no bolso: o dólar caiu de ~5,90 para 5,21 e comeu quase metade
+    do ganho. É também como o Fisco calcula custo de aquisição.
+  - **O servidor busca a taxa**, mesmo tendo o formulário mostrado um preview
+    (`lookupFxRate`) — a mesma regra que já faz o servidor derivar o
+    `totalCents` em vez de confiar no número que o browser calculou. Se a busca
+    falhar, a compra é **recusada**: gravar dólar como real de novo seria pior.
+  - **Fim de semana cai no fechamento anterior** (`pickCloseOnOrBefore`, janela de
+    10 dias). Comprar num sábado não pode falhar.
+  - **A lista de moedas é fechada** (`SUPPORTED_FX`, hoje só `USD`) porque o Yahoo
+    responde **`GBp`** para Londres — **pence**, não libras. Converter isso pela
+    taxa da libra erraria por 100×, calado. Moeda fora da lista é recusada, nunca
+    adivinhada.
+  - **Backfill** das 5 compras do IVV pela taxa do dia de cada uma, buscada (não
+    digitada): total fechou exatamente em **R$ 566,91**. O script recusa rodar
+    duas vezes conferindo o total antes de tocar em qualquer coisa.
+  - Cripto ficou de fora: mesma mecânica, símbolo diferente no Yahoo
+    (`BTC-USD`), e não há nenhuma na carteira para verificar.
+
 #### Duas features previstas foram cortadas — 2026-08-22
 
 Decisão do desenvolvedor. Ficam registradas aqui para não voltarem à lista de

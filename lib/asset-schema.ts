@@ -13,6 +13,7 @@ import { z } from 'zod'
 import {
   ASSET_TYPES,
   ASSET_OPERATION_TYPES,
+  PURCHASE_CURRENCIES,
   TREASURY_KINDS,
   type AssetType,
 } from '@/lib/constants'
@@ -144,6 +145,14 @@ export const purchaseSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.enum(MARKET_ASSET_TYPES, { error: 'Selecione o tipo do ativo' }),
     ticker,
+    // Which currency `unitPriceCents` is expressed in. Defaults to reais, so
+    // every existing caller keeps working unchanged.
+    //
+    // It belongs to the PURCHASE and not to the asset because it never reaches
+    // the database: the Server Action converts to reais at the rate of the
+    // purchase date and stores that (ADR-013). A Tesouro bond has no such field
+    // — it is always in reais — which is why this sits on this branch alone.
+    currency: z.enum(PURCHASE_CURRENCIES, { error: 'Moeda inválida' }).default('BRL'),
     ...purchaseFields,
   }),
 ])
