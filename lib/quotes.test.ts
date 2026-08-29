@@ -34,10 +34,15 @@ describe('quoteProviderFor', () => {
     expect(quoteProviderFor('fixed_income')).toBe('tesouro')
   })
 
-  it('leaves the types that do not trade in reais on the manual cell', () => {
-    // Yahoo CAN price these — it just answers in dollars, and the column is
-    // cents of BRL with no currency beside it (ADR-010).
-    expect(quoteProviderFor('stock_intl')).toBeNull()
+  it('sends foreign shares to Yahoo too, now that dollars can be converted', () => {
+    // Before ADR-013 this was null: Yahoo answers in dollars and the column is
+    // cents of BRL. Now the refresh converts before storing.
+    expect(quoteProviderFor('stock_intl')).toBe('yahoo')
+  })
+
+  it('leaves crypto on the manual cell', () => {
+    // Same mechanics, different symbol shape ("BTC-USD"), and no coin in the
+    // portfolio to verify it against.
     expect(quoteProviderFor('crypto')).toBeNull()
   })
 })
@@ -59,12 +64,17 @@ describe('yahooSymbolFor', () => {
     expect(yahooSymbolFor(' petr4 ', 'stock_br')).toBe('PETR4.SA')
   })
 
-  it('has no symbol for a type that is not fetched', () => {
+  it('asks for a foreign listing bare, with no exchange suffix', () => {
+    // "IVV.SA" is a different thing (or nothing at all). The US listing is the
+    // plain symbol.
+    expect(yahooSymbolFor('IVV', 'stock_intl')).toBe('IVV')
+    expect(yahooSymbolFor(' aapl ', 'stock_intl')).toBe('AAPL')
+  })
+
+  it('has no symbol for a type Yahoo does not price here', () => {
     expect(yahooSymbolFor('BTC', 'crypto')).toBeNull()
-    expect(yahooSymbolFor('AAPL', 'stock_intl')).toBeNull()
-    // Fixed income has a provider now, so this guard cannot be "has no
-    // provider" — it has to be "is not Yahoo", or a bond would be asked for as
-    // "TESOURO IPCA+ 2035.SA".
+    // Fixed income HAS a provider, just not this one — so the guard cannot be
+    // "has no provider", or a bond would be asked for as "TESOURO IPCA+ 2035.SA".
     expect(yahooSymbolFor('Tesouro IPCA+ 2035', 'fixed_income')).toBeNull()
   })
 })
@@ -356,5 +366,43 @@ describe('isSupportedCurrency', () => {
   it('does not treat the real as a foreign currency', () => {
     // BRL needs no conversion, so it is not on the list of what can be converted.
     expect(isSupportedCurrency('BRL')).toBe(false)
+  })
+})
+
+describe('brlQuoteToCents — moeda estrangeira', () => {
+  const rates = new Map([['USD', 5.2054]])
+
+  it('passa um preço em reais direto', () => {
+    expect(brlQuoteToCents({ price: 42.72, currency: 'BRL' }, rates)).toBe(4272)
+  })
+
+  it('converte dólar com a taxa em mãos', () => {
+    // IVV a US$ 773,00 x 5,2054 = R$ 4.023,77 -> 402377,42 centavos.
+    const cents = brlQuoteToCents({ price: 773.0, currency: 'USD' }, rates)!
+    expect(Math.round(cents)).toBe(402377)
+  })
+
+  it('preserva fração de centavo, que arredondar antes destruiria', () => {
+    // Uma cotação pode ser mais fina que um centavo (ADR-007).
+    const cents = brlQuoteToCents({ price: 0.00001, currency: 'USD' }, rates)
+    expect(cents).toBeGreaterThan(0)
+    expect(cents).toBeLessThan(1)
+  })
+
+  it('recusa GBp mesmo com taxa de libra disponível', () => {
+    // Pence, não libras: converter pela taxa da libra erraria por 100x.
+    const withPound = new Map([['USD', 5.2054], ['GBP', 6.9]])
+    expect(brlQuoteToCents({ price: 250, currency: 'GBp' }, withPound)).toBeNull()
+  })
+
+  it('recusa quando não há taxa para a moeda', () => {
+    // O dólar não voltou na rodada: melhor manter a cotação anterior do que
+    // gravar um número em dólar numa coluna que significa real.
+    expect(brlQuoteToCents({ price: 773.0, currency: 'USD' }, new Map())).toBeNull()
+    expect(brlQuoteToCents({ price: 773.0, currency: 'USD' })).toBeNull()
+  })
+
+  it('recusa uma taxa inutilizável', () => {
+    expect(brlQuoteToCents({ price: 773.0, currency: 'USD' }, new Map([['USD', 0]]))).toBeNull()
   })
 })

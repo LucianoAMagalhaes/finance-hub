@@ -17,3 +17,9 @@ Registros curtos das decisões técnicas relevantes do projeto. Cada ADR respond
 | [ADR-009](ADR-009-nota-do-ativo-e-sugestao-de-aporte.md) | Nota do ativo por checklist e sugestão de aporte por lacuna | accepted |
 | [ADR-010](ADR-010-cotacoes-automaticas.md) | Cotações automáticas via Yahoo Finance, sob botão e só em reais | accepted |
 | [ADR-011](ADR-011-cotacoes-tesouro-direto.md) | Cotações do Tesouro Direto pelo arquivo diário do Tesouro Transparente | accepted |
+| [ADR-013](ADR-013-ativos-em-moeda-estrangeira.md) | Ativo em moeda estrangeira convertido na gravação, pela taxa do dia | accepted |
+
+> **O ADR-012 não está aqui de propósito.** Ele documenta o valor líquido do
+> Tesouro (IR + IOF + taxa B3) e vive na branch `feat/treasury-net-value`, que
+> foi cortada antes do merge. O número fica reservado: se aquela feature voltar,
+> volta com o ADR dela. Número de ADR não se reaproveita.

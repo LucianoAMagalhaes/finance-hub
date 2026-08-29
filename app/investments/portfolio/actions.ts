@@ -610,14 +610,33 @@ async function resolveYahooPrices(
   const symbols = new Map(
     assets.map((asset) => [asset.id, yahooSymbolFor(asset.ticker, asset.type)!]),
   )
-  const quotes = await fetchYahooQuotes(Array.from(symbols.values()))
+
+  // A foreign holding needs the dollar of the moment to be stored in reais. It
+  // rides along as one more symbol in the SAME batch rather than a request of
+  // its own — Yahoo prices USDBRL=X like any other ticker, and this endpoint
+  // throttles bursts, so one fewer round trip is worth having.
+  const needsFx = assets.some((asset) => asset.type === 'stock_intl')
+  const wanted = Array.from(symbols.values())
+  if (needsFx) wanted.push(FX_SYMBOLS.USD)
+
+  const quotes = await fetchYahooQuotes(wanted)
   const asOf = new Date()
+
+  // If the dollar did not come back, the map stays empty and every foreign
+  // ticker is reported as "sem retorno", keeping the price it had. That is much
+  // better than the alternative of storing a dollar figure as reais.
+  const rates = new Map<string, number>()
+  const fxQuote = needsFx ? quotes.get(FX_SYMBOLS.USD) : null
+  if (fxQuote && fxQuote.currency === 'BRL' && fxQuote.price > 0) {
+    rates.set('USD', fxQuote.price)
+  }
 
   const prices = new Map<string, ResolvedPrice>()
   for (const asset of assets) {
-    // brlQuoteToCents also REFUSES a quote that came back in another currency,
-    // which is what keeps a dollar price out of a column that means reais.
-    const priceCents = brlQuoteToCents(quotes.get(symbols.get(asset.id)!) ?? null)
+    // brlQuoteToCents converts the currencies it knows and REFUSES the rest,
+    // which is what keeps an unconverted foreign price out of a column that
+    // means reais.
+    const priceCents = brlQuoteToCents(quotes.get(symbols.get(asset.id)!) ?? null, rates)
     if (priceCents !== null) prices.set(asset.id, { priceCents, asOf })
   }
   return prices

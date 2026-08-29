@@ -1,7 +1,13 @@
 # ADR-010: Cotações automáticas via Yahoo Finance, sob botão e só em reais
 
 **Data:** 2026-08-27
-**Status:** accepted
+**Status:** accepted — parcialmente superado pelo
+[ADR-013](ADR-013-ativos-em-moeda-estrangeira.md)
+
+> O critério "**só o que é negociado em real**" deixou de valer para
+> `stock_intl`: desde o ADR-013 o app converte cotação e compra em dólar. O
+> resto deste ADR continua de pé — botão em vez de fetch automático, Yahoo como
+> fonte, e ticker sem retorno mantendo a cotação anterior.
 
 ## Contexto
 
